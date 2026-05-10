@@ -65,7 +65,7 @@ button:not(:disabled):hover{filter:brightness(1.15)}
 .rssi-mini-bar{display:flex;align-items:center;gap:5px;padding:3px 8px;background:var(--sf2)}
 .rssi-mini-label{font-size:9px;color:var(--muted);width:26px}
 .rssi-mini-track{flex:1;height:5px;background:var(--bd);border-radius:3px;overflow:hidden}
-.rssi-mini-fill{height:100%;width:0%;border-radius:3px;transition:width .2s}
+.rssi-mini-fill{height:100%;width:0%;border-radius:3px;transition:width .05s}
 .p0 .rssi-mini-fill,.p0-fill{background:var(--p0)}.p1 .rssi-mini-fill,.p1-fill{background:var(--p1)}
 .p2 .rssi-mini-fill,.p2-fill{background:var(--p2)}.p3 .rssi-mini-fill,.p3-fill{background:var(--p3)}
 .rssi-mini-val{font-size:10px;color:var(--muted);min-width:36px;text-align:right}
@@ -381,7 +381,7 @@ function refreshVoiceBtns(){
 // ═══════════════════════════════════════════════════════════════════
 function pad(n,w){return String(n).padStart(w,'0')}
 function fmt(ms){if(!ms)return'--:--.---';var m=Math.floor(ms/60000),s=Math.floor((ms%60000)/1000),f=ms%1000;return m+':'+pad(s,2)+'.'+pad(f,3);}
-function fmtTimer(ms){var h=Math.floor(ms/3600000),m=Math.floor((ms%3600000)/60000),s=Math.floor((ms%60000)/1000);if(h>0)return pad(h,2)+':'+pad(m,2)+':'+pad(s,2);return pad(m,2)+':'+pad(s,2);}
+function fmtTimer(ms){var h=Math.floor(ms/3600000),m=Math.floor((ms%3600000)/60000),s=Math.floor((ms%60000)/1000),cs=Math.floor((ms%1000)/10);if(h>0)return pad(h,2)+':'+pad(m,2)+':'+pad(s,2)+'.'+pad(cs,2);return pad(m,2)+':'+pad(s,2)+'.'+pad(cs,2);}
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 function dbPct(db){
   // RSSI棒グラフ用 (-120〜-40の範囲で0-100%)
@@ -393,7 +393,18 @@ function fmtDelta(ms){return(ms>0?'+':'')+(ms/1000).toFixed(3)+'s';}
 // レースタイマー
 // ═══════════════════════════════════════════════════════════════════
 var timerEl=document.getElementById('timer');
-function startTimer(){raceStartPerf=performance.now();timerEl.classList.add('running');timerH=setInterval(()=>{timerEl.textContent=fmtTimer(performance.now()-raceStartPerf);},500);}
+var countdownH=null;   // カウントダウン用インターバル
+
+// レースタイマー開始 (race_start WS受信時に呼ばれる)
+function startTimer(){
+  // カウントダウン中だった場合は停止
+  if(countdownH){clearInterval(countdownH);countdownH=null;}
+  raceStartPerf=performance.now();
+  timerEl.classList.add('running');
+  // 50ms間隔でコンマ第2位まで更新
+  if(timerH)clearInterval(timerH);
+  timerH=setInterval(()=>{timerEl.textContent=fmtTimer(performance.now()-raceStartPerf);},50);
+}
 function stopTimer(){clearInterval(timerH);timerH=null;timerEl.classList.remove('running');}
 
 // ═══════════════════════════════════════════════════════════════════
@@ -722,6 +733,20 @@ async function sdRestore(){
 // キャリブレーション (Item 1/5/10)
 // ═══════════════════════════════════════════════════════════════════
 var charts={};
+var chartDirty=[false,false,false,false];  // rAFループ用ダーティフラグ
+
+// 項目3: requestAnimationFrameによる60fpsスムーズ描画
+// キャリブタブがアクティブな時のみ描画しCPUを節約
+(function chartLoop(){
+  requestAnimationFrame(chartLoop);
+  var calibActive=document.getElementById('pane-calib').classList.contains('active');
+  for(var i=0;i<N;i++){
+    if(chartDirty[i]&&charts[i]){
+      if(calibActive)drawChart(i);
+      chartDirty[i]=false;
+    }
+  }
+})();
 
 function buildCalibCards(){
   var g=document.getElementById('calibGrid');g.innerHTML='';
@@ -736,14 +761,14 @@ function buildCalibCards(){
       +'<div class="calib-sliders">'
         +'<div class="config-row"><label>Enter（入）</label>'
           +'<div class="slider-num">'
-            +'<input type="range" id="calEnter'+p.id+'" min="-120" max="-40" step="1" value="'+p.enterRssi+'" oninput="syncCalib('+p.id+',\'enter\')">'
-            +'<input type="number" id="calEnterN'+p.id+'" min="-120" max="-40" step="1" value="'+p.enterRssi+'" onchange="syncCalibN('+p.id+',\'enter\')">'
+            +'<input type="range" id="calEnter'+p.id+'" min="-100" max="-10" step="1" value="'+p.enterRssi+'" oninput="syncCalib('+p.id+',\'enter\')">'
+            +'<input type="number" id="calEnterN'+p.id+'" min="-100" max="-10" step="1" value="'+p.enterRssi+'" onchange="syncCalibN('+p.id+',\'enter\')">'
             +'<span class="unit">dBm</span>'
           +'</div></div>'
         +'<div class="config-row"><label>Exit（出）</label>'
           +'<div class="slider-num">'
-            +'<input type="range" id="calExit'+p.id+'" min="-120" max="-40" step="1" value="'+p.exitRssi+'" oninput="syncCalib('+p.id+',\'exit\')">'
-            +'<input type="number" id="calExitN'+p.id+'" min="-120" max="-40" step="1" value="'+p.exitRssi+'" onchange="syncCalibN('+p.id+',\'exit\')">'
+            +'<input type="range" id="calExit'+p.id+'" min="-100" max="-10" step="1" value="'+p.exitRssi+'" oninput="syncCalib('+p.id+',\'exit\')">'
+            +'<input type="number" id="calExitN'+p.id+'" min="-100" max="-10" step="1" value="'+p.exitRssi+'" onchange="syncCalibN('+p.id+',\'exit\')">'
             +'<span class="unit">dBm</span>'
           +'</div></div>'
       +'</div>';
@@ -767,7 +792,7 @@ function initChart(id){
 function pushChart(id,rssi,crossing){
   var c=charts[id];if(!c)return;
   c.data.copyWithin(0,1);c.data[199]=rssi;c.cross.copyWithin(0,1);c.cross[199]=crossing?1:0;
-  drawChart(id);
+  chartDirty[id]=true;  // rAFループに描画を委任
 }
 
 // Item 5: 動的Y軸スケール
@@ -820,7 +845,13 @@ function drawChart(id){
   // Exit閾値 (赤破線)
   ctx.strokeStyle='#f8514988';ctx.beginPath();ctx.moveTo(0,toY(p.exitRssi));ctx.lineTo(w,toY(p.exitRssi));ctx.stroke();
   ctx.setLineDash([]);
-  // RSSIの波形
+  // 項目2: RSSI線以下を薄い色で塗りつぶし (エリアチャート)
+  ctx.beginPath();
+  for(var j=0;j<200;j++){var x=j*dx,y=toY(c.data[j]);j===0?ctx.moveTo(x,y):ctx.lineTo(x,y);}
+  ctx.lineTo(w,h);ctx.lineTo(0,h);ctx.closePath();
+  ctx.fillStyle=col+'28';  // 約16%透過
+  ctx.fill();
+  // RSSIの波形 (塗りつぶしの上に重ねる)
   ctx.strokeStyle=col;ctx.lineWidth=1.5;ctx.beginPath();
   for(var j=0;j<200;j++){var x=j*dx,y=toY(c.data[j]);j===0?ctx.moveTo(x,y):ctx.lineTo(x,y);}
   ctx.stroke();
@@ -835,7 +866,7 @@ function syncCalib(id,which){
 }
 function syncCalibN(id,which){
   var el=document.getElementById('cal'+cap(which)+'N'+id);
-  var v=Math.max(-120,Math.min(-40,parseInt(el.value)||(-80)));
+  var v=Math.max(-100,Math.min(-10,parseInt(el.value)||(-80)));
   el.value=v;document.getElementById('cal'+cap(which)+id).value=v;
   slots[id][which+'Rssi']=v;drawChart(id);
   scheduleCalibSave(id);
@@ -891,7 +922,21 @@ function switchTab(tab){
 // レース制御
 // ═══════════════════════════════════════════════════════════════════
 function startRace(){
-  ensureAudio();sfx.count();
+  ensureAudio();
+  sfx.count();  // 0/1/2/3秒にビープ音
+
+  // 項目7: メインタイマーに3→0のカウントダウンを表示
+  var cdStart=performance.now();
+  timerEl.classList.remove('running');
+  timerEl.textContent='3.00';
+  if(countdownH)clearInterval(countdownH);
+  countdownH=setInterval(()=>{
+    var rem=Math.max(0,3000-(performance.now()-cdStart));
+    timerEl.textContent=(rem/1000).toFixed(2);
+    if(rem===0){clearInterval(countdownH);countdownH=null;}
+  },50);
+
+  // 3.3秒後にレーススタートをサーバーに送信 (race_start WSが返ったらstartTimerが呼ばれる)
   setTimeout(async()=>{try{await fetch('/api/race/start',{method:'POST'});}catch(e){}},3300);
 }
 function stopRace(){

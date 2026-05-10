@@ -60,11 +60,15 @@
 
 // ── Default detection parameters ──────────────────────────────────────────
 #define MAX_PILOTS         4
-#define EMA_ALPHA          0.3f
+// EMA alpha=0.5: faster response to RSSI changes (was 0.3)
+#define EMA_ALPHA          0.5f
 #define DEFAULT_ENTRY_THR  (-80)    // dBm
 #define DEFAULT_EXIT_THR   (-90)    // dBm
 #define COOLDOWN_MS        3000UL
-#define RSSI_INTERVAL_MS   100UL
+// 50ms interval → 20Hz telemetry for better responsiveness (was 100ms)
+#define RSSI_INTERVAL_MS   50UL
+// After this many ms with no packet, treat signal as lost and decay RSSI
+#define PKT_TIMEOUT_MS     400UL
 
 // ── ISR→main queue ─────────────────────────────────────────────────────────
 struct PacketInfo { uint8_t mac[6]; int8_t rssi; };
@@ -82,6 +86,7 @@ struct PilotState {
     uint32_t lastLapTime;
     int      entryThreshold;
     int      exitThreshold;
+    uint32_t lastPktTime;     // millis() of last received ESP-NOW packet
 };
 
 static PilotState pilots[MAX_PILOTS];
@@ -98,6 +103,7 @@ static void initPilots() {
         pilots[i].lastLapTime    = 0;
         pilots[i].entryThreshold = DEFAULT_ENTRY_THR;
         pilots[i].exitThreshold  = DEFAULT_EXIT_THR;
+        pilots[i].lastPktTime    = 0;
     }
 }
 
@@ -447,7 +453,8 @@ void loop() {
     while (xQueueReceive(packetQueue, &info, 0) == pdTRUE) {
         int idx = findPilot(info.mac);
         if (idx >= 0) {
-            pilots[idx].rawRssi = info.rssi;
+            pilots[idx].rawRssi   = info.rssi;
+            pilots[idx].lastPktTime = now;   // track last packet arrival time
         } else {
             // Unknown aircraft — report to Web Node for pilot assignment
             reportScanMac(info.mac, info.rssi);
@@ -458,7 +465,13 @@ void loop() {
     for (int i = 0; i < MAX_PILOTS; i++) {
         if (!pilots[i].hasUid) continue;
         PilotState& p = pilots[i];
-        p.emaRssi = EMA_ALPHA * p.rawRssi + (1.0f - EMA_ALPHA) * p.emaRssi;
+        // Item 4: if no packet received recently, decay EMA toward floor value
+        // This prevents RSSI from appearing stuck when the aircraft is out of range.
+        int rawInput = p.rawRssi;
+        if (p.lastPktTime > 0 && (now - p.lastPktTime) > PKT_TIMEOUT_MS) {
+            rawInput = -120;   // drive EMA down when signal is lost
+        }
+        p.emaRssi = EMA_ALPHA * rawInput + (1.0f - EMA_ALPHA) * p.emaRssi;
         float ema = p.emaRssi;
 
         if (!p.crossing) {
