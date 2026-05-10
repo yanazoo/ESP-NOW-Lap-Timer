@@ -41,8 +41,8 @@
 #include <ArduinoJson.h>
 
 // ── Network ────────────────────────────────────────────────────────────────
-static const char*     AP_SSID    = "ELRS bp-LT";
-static const char*     AP_PASS    = "elrsbp-lt";
+static const char*     AP_SSID    = "ESP-NOW-LT";
+static const char*     AP_PASS    = "esp-now-lt";
 static const IPAddress AP_IP      (20, 0, 0, 1);
 static const IPAddress AP_GATEWAY (20, 0, 0, 1);
 static const IPAddress AP_SUBNET  (255, 255, 255, 0);
