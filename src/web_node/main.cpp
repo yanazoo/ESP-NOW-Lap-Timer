@@ -21,6 +21,9 @@
  *   GET             /api/sd/status
  *   POST            /api/sd/pilots/backup
  *   POST            /api/sd/pilots/restore
+ *   POST            /api/sd/files/list            → WS push: sd_file_list
+ *   POST            /api/sd/files/download {path} → WS push: sd_file_line×N, sd_file_done
+ *   POST            /api/sd/files/delete   {path} → WS push: sd_delete_result
  *
  * NVS layout ("pilots" namespace)
  *   "ver"       int   = 3 (format version)
@@ -447,6 +450,13 @@ static void processGateLine(const String& line) {
         }
         return;
     }
+    if (strcmp(type, "sd_file_list") == 0 ||
+        strcmp(type, "sd_file_line") == 0 ||
+        strcmp(type, "sd_file_done") == 0 ||
+        strcmp(type, "sd_delete_result") == 0) {
+        wsText(line);   // forward directly to all browser clients
+        return;
+    }
     if (strcmp(type, "sd_restore_done") == 0) {
         // Apply accumulated pilot rows to roster and NVS
         Serial.printf("[Web] SD restore: applying %d pilots\n", restoreCount);
@@ -764,6 +774,64 @@ void setup() {
         req->send(200,"application/json",R"({"ok":true})");
         Serial.println("[Web] SD restore: request sent to gate");
     });
+
+    // ── POST /api/sd/files/list — trigger gate to send SD file list via WS ──
+    server.on("/api/sd/files/list", HTTP_POST, [](AsyncWebServerRequest* req) {
+        if (!sdPresent) {
+            req->send(503, "application/json", R"({"error":"no sd card"})");
+            return;
+        }
+        sendGateCmd("sd_list_files");
+        req->send(200, "application/json", R"({"ok":true})");
+    });
+
+    // ── POST /api/sd/files/download {path} — gate streams file via WS ───────
+    server.on("/api/sd/files/download", HTTP_POST, [](AsyncWebServerRequest*){},
+        nullptr,
+        [](AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t idx, size_t total){
+            handleBody(req, data, len, idx, total,
+                [](AsyncWebServerRequest* req2, const char* body){
+                    if (!sdPresent) {
+                        req2->send(503, "application/json", R"({"error":"no sd card"})");
+                        return;
+                    }
+                    JsonDocument doc;
+                    if (deserializeJson(doc, body) != DeserializationError::Ok)
+                        { req2->send(400, "application/json", R"({"error":"bad json"})"); return; }
+                    const char* path = doc["path"] | "";
+                    if (!strlen(path))
+                        { req2->send(400, "application/json", R"({"error":"no path"})"); return; }
+                    char buf[128];
+                    snprintf(buf, sizeof(buf),
+                             R"({"type":"cmd","action":"sd_read_file","path":"%s"})", path);
+                    Serial1.println(buf);
+                    req2->send(200, "application/json", R"({"ok":true})");
+                });
+        });
+
+    // ── POST /api/sd/files/delete {path} — gate deletes file, result via WS ─
+    server.on("/api/sd/files/delete", HTTP_POST, [](AsyncWebServerRequest*){},
+        nullptr,
+        [](AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t idx, size_t total){
+            handleBody(req, data, len, idx, total,
+                [](AsyncWebServerRequest* req2, const char* body){
+                    if (!sdPresent) {
+                        req2->send(503, "application/json", R"({"error":"no sd card"})");
+                        return;
+                    }
+                    JsonDocument doc;
+                    if (deserializeJson(doc, body) != DeserializationError::Ok)
+                        { req2->send(400, "application/json", R"({"error":"bad json"})"); return; }
+                    const char* path = doc["path"] | "";
+                    if (!strlen(path))
+                        { req2->send(400, "application/json", R"({"error":"no path"})"); return; }
+                    char buf[128];
+                    snprintf(buf, sizeof(buf),
+                             R"({"type":"cmd","action":"sd_delete_file","path":"%s"})", path);
+                    Serial1.println(buf);
+                    req2->send(200, "application/json", R"({"ok":true})");
+                });
+        });
 
     // ── Captive portal detection probes ────────────────────────────────────
     auto cpRedirect = [](AsyncWebServerRequest* req) {

@@ -369,6 +369,67 @@ static void processWebCmd(const String& line) {
 
     } else if (strcmp(action, "sd_restore_request") == 0) {
         sdHandleRestore();
+
+    } else if (strcmp(action, "sd_list_files") == 0) {
+        if (!sdPresent) {
+            Serial1.println(R"({"type":"sd_file_list","files":[]})");
+            return;
+        }
+        File root = SD.open("/");
+        if (!root) { Serial1.println(R"({"type":"sd_file_list","files":[]})"); return; }
+        JsonDocument listDoc;
+        listDoc["type"] = "sd_file_list";
+        JsonArray arr = listDoc["files"].to<JsonArray>();
+        while (true) {
+            File entry = root.openNextFile();
+            if (!entry) break;
+            if (!entry.isDirectory()) {
+                JsonObject f = arr.add<JsonObject>();
+                f["name"] = String(entry.name());
+                f["size"] = (uint32_t)entry.size();
+            }
+            entry.close();
+        }
+        root.close();
+        serializeJson(listDoc, Serial1);
+        Serial1.print('\n');
+        Serial.println("[Gate] SD file list sent");
+
+    } else if (strcmp(action, "sd_read_file") == 0) {
+        const char* path = doc["path"] | "";
+        char doneBuf[96];
+        snprintf(doneBuf, sizeof(doneBuf), R"({"type":"sd_file_done","path":"%s"})", path);
+        if (!sdPresent || !strlen(path)) { Serial1.println(doneBuf); return; }
+        File f = SD.open(path, FILE_READ);
+        if (!f) {
+            Serial.printf("[Gate] SD read: %s not found\n", path);
+            Serial1.println(doneBuf);
+            return;
+        }
+        while (f.available()) {
+            String csvLine = f.readStringUntil('\n');
+            csvLine.trim();
+            if (!csvLine.length()) continue;
+            JsonDocument lineDoc;
+            lineDoc["type"] = "sd_file_line";
+            lineDoc["path"] = path;
+            lineDoc["line"] = csvLine;
+            serializeJson(lineDoc, Serial1);
+            Serial1.print('\n');
+        }
+        f.close();
+        Serial1.println(doneBuf);
+        Serial.printf("[Gate] SD read done: %s\n", path);
+
+    } else if (strcmp(action, "sd_delete_file") == 0) {
+        const char* path = doc["path"] | "";
+        bool ok = sdPresent && strlen(path) && SD.remove(path);
+        char buf[96];
+        snprintf(buf, sizeof(buf),
+                 R"({"type":"sd_delete_result","path":"%s","ok":%s})",
+                 path, ok ? "true" : "false");
+        Serial1.println(buf);
+        Serial.printf("[Gate] SD delete %s: %s\n", path, ok ? "ok" : "fail");
     }
 }
 

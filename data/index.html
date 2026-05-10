@@ -161,6 +161,7 @@ footer{background:var(--sf);border-top:1px solid var(--bd);text-align:center;pad
       <button class="tab-btn active" onclick="switchTab('race')">🏁 レース</button>
       <button class="tab-btn"        onclick="switchTab('config')">⚙️ 設定</button>
       <button class="tab-btn"        onclick="switchTab('calib')">📡 キャリブ</button>
+      <button class="tab-btn"        onclick="switchTab('sd')">💾 SD</button>
     </nav>
   </div>
 </header>
@@ -273,6 +274,18 @@ footer{background:var(--sf);border-top:1px solid var(--bd);text-align:center;pad
   <div class="calib-grid" id="calibGrid"></div>
 </section>
 
+<!-- ═══════════════════════════ SD ════════════════════════════ -->
+<section id="pane-sd" class="tab-pane">
+  <h2 class="section-title">💾 SDカード — ファイルブラウザ</h2>
+  <div id="sdTabStatus"><p style="color:var(--muted);font-size:12px">状態を確認中...</p></div>
+  <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+    <button onclick="refreshSdFiles()" class="btn-secondary" style="flex:1">🔄 ファイル一覧を更新</button>
+  </div>
+  <div id="sdFileListWrap">
+    <p style="color:var(--muted);font-size:12px">「ファイル一覧を更新」を押してください</p>
+  </div>
+</section>
+
 </main>
 <footer><p>ELRS Lap Timer — MAX 50 pilots</p></footer>
 <div id="toast" class="toast"></div>
@@ -308,6 +321,8 @@ var scanResults  = {};
 
 var editingRosterId = null;  // ロースター編集中の pilot id (null=非編集)
 var sdPresent = false;       // SDカードの有無 (gate_nodeから報告)
+var sdFileList = [];         // [{name, size}]
+var sdDownloadBuf = [], sdDownloadPath = '';  // ファイルダウンロード用バッファ
 
 // キャリブ自動保存のデバウンスタイマー
 var calibSaveTimers = {};
@@ -741,6 +756,63 @@ async function sdRestore(){
 }
 
 // ═══════════════════════════════════════════════════════════════════
+// SDカード — ファイルブラウザ
+// ═══════════════════════════════════════════════════════════════════
+function refreshSdFiles(){
+  if(!sdPresent){toast('SDカードがありません');return;}
+  fetch('/api/sd/files/list',{method:'POST'})
+    .then(r=>r.json())
+    .catch(()=>{});
+  toast('ファイル一覧を取得中...');
+}
+
+function downloadSdFile(path){
+  if(raceRunning){toast('レース中はダウンロードできません');return;}
+  sdDownloadPath=path;sdDownloadBuf=[];
+  fetch('/api/sd/files/download',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({path:path})
+  }).catch(()=>{});
+  toast('ダウンロード中: '+path.replace(/^\//,''));
+}
+
+function deleteSdFile(path){
+  if(!confirm(path.replace(/^\//,'')+' を削除しますか？'))return;
+  fetch('/api/sd/files/delete',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({path:path})
+  }).catch(()=>{});
+}
+
+function renderSdFileList(){
+  var wrap=document.getElementById('sdFileListWrap');
+  if(!wrap)return;
+  if(!sdFileList.length){
+    wrap.innerHTML='<p style="color:var(--muted);font-size:12px">ファイルがありません</p>';
+    return;
+  }
+  var html='<div class="lap-table-wrap"><table class="lapTable"><thead><tr>'
+    +'<th style="text-align:left">ファイル名</th><th>サイズ</th><th>操作</th>'
+    +'</tr></thead><tbody>';
+  sdFileList.forEach(function(f){
+    var kb=(f.size/1024).toFixed(1);
+    var path='/'+f.name;
+    var esc=path.replace(/'/g,"\\'");
+    html+='<tr>'
+      +'<td style="text-align:left">'+f.name+'</td>'
+      +'<td>'+kb+' KB</td>'
+      +'<td style="display:flex;gap:4px;justify-content:center">'
+      +'<button onclick="downloadSdFile(\''+esc+'\')" class="btn-secondary" style="padding:2px 8px;font-size:11px">⬇ DL</button>'
+      +'<button onclick="deleteSdFile(\''+esc+'\')" class="btn-danger" style="padding:2px 8px;font-size:11px">🗑</button>'
+      +'</td></tr>';
+  });
+  html+='</tbody></table></div>';
+  wrap.innerHTML=html;
+}
+
+// ═══════════════════════════════════════════════════════════════════
 // キャリブレーション (Item 1/5/10)
 // ═══════════════════════════════════════════════════════════════════
 var charts={};
@@ -914,7 +986,7 @@ function switchTab(tab){
   document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
   document.getElementById('pane-'+tab).classList.add('active');
-  document.querySelectorAll('.tab-btn')[['race','config','calib'].indexOf(tab)].classList.add('active');
+  document.querySelectorAll('.tab-btn')[['race','config','calib','sd'].indexOf(tab)].classList.add('active');
   if(tab==='calib'){
     // タブ表示後にcanvasサイズを実際の幅に合わせてリサイズ・再描画
     setTimeout(()=>{
@@ -1085,6 +1157,39 @@ function onMsg(d){
     loadRoster();
     return;
   }
+  if(d.type==='sd_file_list'){
+    sdFileList=d.files||[];
+    renderSdFileList();
+    return;
+  }
+  if(d.type==='sd_file_line'){
+    if(d.path===sdDownloadPath)sdDownloadBuf.push(d.line);
+    return;
+  }
+  if(d.type==='sd_file_done'){
+    if(d.path===sdDownloadPath&&sdDownloadBuf.length){
+      var blob=new Blob([sdDownloadBuf.join('\n')+'\n'],{type:'text/csv'});
+      var a=document.createElement('a');
+      a.href=URL.createObjectURL(blob);
+      a.download=d.path.replace(/^\//,'');
+      document.body.appendChild(a);a.click();document.body.removeChild(a);
+      URL.revokeObjectURL(a.href);
+      toast('✅ ダウンロード完了: '+a.download);
+    }
+    sdDownloadBuf=[];sdDownloadPath='';
+    return;
+  }
+  if(d.type==='sd_delete_result'){
+    if(d.ok){
+      toast('🗑 削除完了: '+d.path);
+      var delName=d.path.replace(/^\//,'');
+      sdFileList=sdFileList.filter(function(f){return f.name!==delName;});
+      renderSdFileList();
+    }else{
+      toast('削除失敗: '+d.path);
+    }
+    return;
+  }
 }
 
 function syncCalibSliders(id,enter,exit_){
@@ -1098,6 +1203,14 @@ function updateSdSection(present){
   sdPresent=present;
   var sec=document.getElementById('sdSection');
   if(sec)sec.style.display=present?'block':'none';
+  var st=document.getElementById('sdTabStatus');
+  if(st)st.innerHTML=present
+    ?'<p style="color:var(--ok);font-size:12px">✅ SDカード検出済み — レース中はダウンロードしないでください</p>'
+    :'<p style="color:var(--err);font-size:12px">⚠ SDカードが見つかりません</p>';
+  if(!present){
+    var wrap=document.getElementById('sdFileListWrap');
+    if(wrap)wrap.innerHTML='<p style="color:var(--muted);font-size:12px">SDカードが挿入されていません</p>';
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════
