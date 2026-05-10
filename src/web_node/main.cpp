@@ -33,6 +33,7 @@
 
 #include <Arduino.h>
 #include <WiFi.h>
+#include <DNSServer.h>
 #include <ESPAsyncWebServer.h>
 #include <AsyncWebSocket.h>
 #include <LittleFS.h>
@@ -122,6 +123,7 @@ static void updateScanMac(const char* mac, int rssi) {
 // ── Server ─────────────────────────────────────────────────────────────────
 AsyncWebServer server(80);
 AsyncWebSocket ws("/ws");
+DNSServer      dnsServer;
 Preferences    prefs;
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -440,6 +442,10 @@ void setup() {
     WiFi.softAP(AP_SSID, AP_PASS, 6);
     Serial.printf("[Web] AP  SSID=%s  IP=%s\n", AP_SSID, AP_IP.toString().c_str());
 
+    // Captive portal: resolve every DNS query to our IP
+    dnsServer.setErrorReplyCode(DNSReplyCode::NoError);
+    dnsServer.start(53, "*", AP_IP);
+
     if (!LittleFS.begin(true)) Serial.println("[Web] LittleFS failed");
 
     ws.onEvent(onWsEvent);
@@ -636,7 +642,36 @@ void setup() {
         String s; serializeJson(doc,s); req->send(200,"application/json",s);
     });
 
+    // ── Captive portal detection probes ───────────────────────────────────────
+    // These URLs are requested by OS connectivity checks; redirect to our UI.
+    auto cpRedirect = [](AsyncWebServerRequest* req) {
+        req->redirect("http://20.0.0.1/");
+    };
+    // Android / Chrome
+    server.on("/generate_204",              HTTP_GET, cpRedirect);
+    server.on("/gen_204",                   HTTP_GET, cpRedirect);
+    // iOS / macOS (various versions)
+    server.on("/hotspot-detect.html",       HTTP_GET, cpRedirect);
+    server.on("/library/test/success.html", HTTP_GET, cpRedirect);
+    server.on("/bag",                       HTTP_GET, cpRedirect);
+    // Windows
+    server.on("/connecttest.txt",           HTTP_GET, cpRedirect);
+    server.on("/ncsi.txt",                  HTTP_GET, cpRedirect);
+    server.on("/redirect",                  HTTP_GET, cpRedirect);
+    // Firefox
+    server.on("/success.txt",               HTTP_GET, cpRedirect);
+    server.on("/canonical.html",            HTTP_GET, cpRedirect);
+
     server.serveStatic("/", LittleFS, "/").setDefaultFile("index.html");
+
+    // Catch-all: redirect anything unknown (API 404 returns JSON instead)
+    server.onNotFound([](AsyncWebServerRequest* req) {
+        if (req->url().startsWith("/api"))
+            req->send(404, "application/json", R"({"error":"not found"})");
+        else
+            req->redirect("http://20.0.0.1/");
+    });
+
     server.begin();
     Serial.printf("[Web] HTTP started  roster=%d/%d  active=%d,%d,%d,%d\n",
                   rosterCount, MAX_REGISTERED,
@@ -650,6 +685,7 @@ void setup() {
 // ── Loop ───────────────────────────────────────────────────────────────────
 static String uartBuf;
 void loop() {
+    dnsServer.processNextRequest();
     ws.cleanupClients();
     while (Serial1.available()) {
         char c = (char)Serial1.read();
