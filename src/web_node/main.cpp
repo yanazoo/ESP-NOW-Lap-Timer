@@ -10,6 +10,7 @@
 #include <Arduino.h>
 #include <WiFi.h>
 #include <LittleFS.h>
+#include <ESPAsyncWebServer.h>
 #include "config.h"
 #include "data_model.h"
 #include "nvs_store.h"
@@ -39,6 +40,11 @@ void setup() {
     dnsServer.start(53, "*", AP_IP);
 
     if (!LittleFS.begin(true)) Serial.println("[Web] LittleFS failed");
+
+    DefaultHeaders::Instance().addHeader("Access-Control-Allow-Origin",  "*");
+    DefaultHeaders::Instance().addHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    DefaultHeaders::Instance().addHeader("Access-Control-Allow-Headers", "Content-Type");
+    DefaultHeaders::Instance().addHeader("Cache-Control",                "no-cache, no-store, must-revalidate");
 
     initWsHandler();
     registerHttpRoutes();

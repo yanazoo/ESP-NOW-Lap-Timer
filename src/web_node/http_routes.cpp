@@ -266,21 +266,40 @@ void registerHttpRoutes() {
         });
 
     // ── Captive portal ─────────────────────────────────────────────────────────
-    auto cpRedirect = [](AsyncWebServerRequest* req) { req->redirect("http://20.0.0.1/"); };
-    server.on("/generate_204",              HTTP_GET, cpRedirect);
-    server.on("/gen_204",                   HTTP_GET, cpRedirect);
-    server.on("/hotspot-detect.html",       HTTP_GET, cpRedirect);
-    server.on("/library/test/success.html", HTTP_GET, cpRedirect);
-    server.on("/bag",                       HTTP_GET, cpRedirect);
-    server.on("/connecttest.txt",           HTTP_GET, cpRedirect);
-    server.on("/ncsi.txt",                  HTTP_GET, cpRedirect);
-    server.on("/redirect",                  HTTP_GET, cpRedirect);
-    server.on("/success.txt",               HTTP_GET, cpRedirect);
-    server.on("/canonical.html",            HTTP_GET, cpRedirect);
+    // Respond to all captive-portal probes with a redirect to the UI.
+    // HTTP_ANY covers GET, HEAD, OPTIONS, POST — required for iOS, Android, Windows.
+    auto cpRedirect = [](AsyncWebServerRequest* req) {
+        req->redirect("http://20.0.0.1/");
+    };
+    // Android (AOSP / Google)
+    server.on("/generate_204",              HTTP_ANY, cpRedirect);
+    server.on("/gen_204",                   HTTP_ANY, cpRedirect);
+    // iOS / macOS
+    server.on("/hotspot-detect.html",       HTTP_ANY, cpRedirect);
+    server.on("/library/test/success.html", HTTP_ANY, cpRedirect);
+    server.on("/success.txt",               HTTP_ANY, cpRedirect);
+    server.on("/canonical.html",            HTTP_ANY, cpRedirect);
+    // Windows (NCSI / WPAD)
+    server.on("/ncsi.txt",                  HTTP_ANY, cpRedirect);
+    server.on("/connecttest.txt",           HTTP_ANY, cpRedirect);
+    server.on("/redirect",                  HTTP_ANY, cpRedirect);
+    server.on("/fwlink",                    HTTP_ANY, cpRedirect);
+    server.on("/wpad.dat",                  HTTP_ANY, cpRedirect);
+    // Misc
+    server.on("/bag",                       HTTP_ANY, cpRedirect);
+    server.on("/kindle-wifi/wifistub.html", HTTP_ANY, cpRedirect);
+    // Suppress noisy browser auto-requests
+    server.on("/favicon.ico",              HTTP_ANY, [](AsyncWebServerRequest* req){ req->send(204); });
+    server.on("/apple-touch-icon.png",     HTTP_ANY, [](AsyncWebServerRequest* req){ req->send(204); });
 
     server.serveStatic("/", LittleFS, "/").setDefaultFile("index.html");
 
     server.onNotFound([](AsyncWebServerRequest* req) {
+        // Handle CORS preflight
+        if (req->method() == HTTP_OPTIONS) {
+            req->send(204);
+            return;
+        }
         if (req->url().startsWith("/api"))
             req->send(404,"application/json",R"({"error":"not found"})");
         else
