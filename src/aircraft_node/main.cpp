@@ -23,7 +23,9 @@
 #include <Arduino.h>
 #include <esp_now.h>
 #include <esp_wifi.h>
-#include <WiFi.h>
+
+// WiFi.h (arduino-esp32 3.x) transitively requires Network.h which is not on
+// the compiler include path in PlatformIO.  Use esp_wifi.h IDF APIs directly.
 
 #define ESPNOW_CHANNEL   1
 #define BROADCAST_MS   100
@@ -34,8 +36,11 @@ void setup() {
     Serial.begin(115200);
     delay(300);
 
-    WiFi.mode(WIFI_STA);
-    WiFi.disconnect();
+    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
+    esp_wifi_init(&cfg);
+    esp_wifi_set_storage(WIFI_STORAGE_RAM);
+    esp_wifi_set_mode(WIFI_MODE_STA);
+    esp_wifi_start();
 
 #ifdef CONFIG_IDF_TARGET_ESP32C6
     // C6 defaults to 802.11ax (WiFi 6); ESP-NOW needs legacy 802.11b/g/n
@@ -57,7 +62,13 @@ void setup() {
     peer.encrypt = false;
     esp_now_add_peer(&peer);
 
-    Serial.printf("[Aircraft] MAC     : %s\n", WiFi.macAddress().c_str());
+    uint8_t mac[6];
+    esp_wifi_get_mac(WIFI_IF_STA, mac);
+    char macStr[18];
+    snprintf(macStr, sizeof(macStr), "%02X:%02X:%02X:%02X:%02X:%02X",
+             mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+
+    Serial.printf("[Aircraft] MAC     : %s\n", macStr);
     Serial.printf("[Aircraft] Channel : %d\n", ESPNOW_CHANNEL);
     Serial.printf("[Aircraft] Interval: %d ms\n", BROADCAST_MS);
     Serial.println("[Aircraft] Broadcasting — register this MAC in Web UI Config tab");
