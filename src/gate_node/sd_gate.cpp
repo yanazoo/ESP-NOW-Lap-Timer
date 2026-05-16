@@ -39,7 +39,7 @@ void sdInit() {
 
 void sdCheckHotplug(uint32_t now) {
     static uint32_t lastCheck = 0;
-    if (now - lastCheck < 2000) return;
+    if (now - lastCheck < 500) return;
     lastCheck = now;
 
     bool wasPresent = sdPresent;
