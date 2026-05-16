@@ -38,26 +38,29 @@ void sdInit() {
 }
 
 void sdCheckHotplug(uint32_t now) {
-    static uint32_t lastCheck = 0;
-    if (now - lastCheck < 500) return;
-    lastCheck = now;
+    static uint32_t lastInsertCheck = 0;
+    static uint32_t lastRemoveCheck = 0;
 
-    bool wasPresent = sdPresent;
     if (!sdPresent) {
+        if (now - lastInsertCheck < 500) return;
+        lastInsertCheck = now;
         SD.end();
         if (SD.begin(SD_CS_PIN, SPI, 4000000)) {
             sdPresent = true;
             Serial.printf("[Gate] SD inserted  size=%lluMB\n",
                           SD.cardSize() / (1024ULL * 1024ULL));
+            sdSendStatus();
         }
     } else if (!raceFile && !backupFile) {
+        if (now - lastRemoveCheck < 3000) return;
+        lastRemoveCheck = now;
         SD.end();
         if (!SD.begin(SD_CS_PIN, SPI, 4000000)) {
             sdPresent = false;
             Serial.println("[Gate] SD removed");
+            sdSendStatus();
         }
     }
-    if (sdPresent != wasPresent) sdSendStatus();
 }
 
 void sdSendStatus() {
