@@ -1,3 +1,6 @@
 {
-    "C_Cpp.intelliSenseCachePath": "${workspaceFolder}/.vscode/.cache"
+    "C_Cpp.intelliSenseCachePath": "${workspaceFolder}/.vscode/.cache",
+    "cmake.configureOnOpen": false,
+    "cmake.autoSelectActiveFolder": false,
+    "cmake.ignoreCMakeListsMissing": true
 }
