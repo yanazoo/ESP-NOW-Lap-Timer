@@ -91,9 +91,11 @@ function onMsg(d){
     if(d.yomi!==undefined)p.yomi=d.yomi;
     p.lapCount=d.lapCount!==undefined?d.lapCount:p.lapCount+1;
     var lapMs=d.lapTime||0;
-    p.lapTimes.push(lapMs);p.cumulative+=lapMs;
-    if(lapMs>0&&(!p.bestLapMs||lapMs<p.bestLapMs))p.bestLapMs=lapMs;
-    updateRaceCard(p);addLapRow(p,lapMs,p.cumulative);checkFinished(p);
+    p.lapTimes.push(lapMs);
+    var _isHS=(lapMode==='holeshot'&&p.lapCount===1);
+    var _cum;if(_isHS){_cum=lapMs;}else{p.cumulative+=lapMs;_cum=p.cumulative;}
+    if(!_isHS&&lapMs>0&&(!p.bestLapMs||lapMs<p.bestLapMs))p.bestLapMs=lapMs;
+    updateRaceCard(p);addLapRow(p,lapMs,_cum);checkFinished(p);
     if(d.newBest||lapMs===p.bestLapMs)sfx.best();
     speak(buildSpeech(p,p.lapCount,lapMs));
     return;
