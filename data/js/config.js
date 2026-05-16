@@ -176,11 +176,14 @@ async function deleteRosterPilot(id){
 
 function updateScanList(){
   var el=document.getElementById('scanList');if(!el)return;
-  var macs=Object.keys(scanResults);
+  var macs=Object.keys(scanResults).filter(function(mac){
+    var s=scanResults[mac];
+    return !(s.assignedRosterId!==undefined&&s.assignedRosterId>=0);
+  });
   if(!macs.length){el.innerHTML='<span style="color:var(--muted);font-size:12px">スキャン待機中... 機体の電源を入れてください</span>';return;}
   el.innerHTML=macs.map(function(mac){
     var s=scanResults[mac];
-    var done=s.assignedRosterId!==undefined&&s.assignedRosterId>=0;
+    var done=false;
     var macId=mac.replace(/:/g,'');
     var savedName=s.inputName||s.pilotName||'';
     var rssi=typeof s.rssi==='number'?s.rssi:-80;
