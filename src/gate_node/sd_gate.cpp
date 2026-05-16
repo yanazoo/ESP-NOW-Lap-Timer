@@ -50,10 +50,10 @@ void sdCheckHotplug(uint32_t now) {
             Serial.printf("[Gate] SD inserted  size=%lluMB\n",
                           SD.cardSize() / (1024ULL * 1024ULL));
         }
-    } else {
-        if (SD.cardSize() == 0) {
+    } else if (!raceFile && !backupFile) {
+        SD.end();
+        if (!SD.begin(SD_CS_PIN, SPI, 4000000)) {
             sdPresent = false;
-            SD.end();
             Serial.println("[Gate] SD removed");
         }
     }
