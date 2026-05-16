@@ -29,7 +29,7 @@
 // the compiler include path in PlatformIO.  Use esp_wifi.h IDF APIs directly.
 
 #define ESPNOW_CHANNEL   1
-#define BROADCAST_MS   100
+#define BROADCAST_MS    50
 
 static const uint8_t kBroadcast[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
 

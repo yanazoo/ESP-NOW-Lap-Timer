@@ -17,12 +17,12 @@
 
 // Pilot detection
 #define MAX_PILOTS         4
-#define EMA_ALPHA          0.3f
+#define EMA_ALPHA          0.2f
 #define DEFAULT_ENTRY_THR  (-80)
 #define DEFAULT_EXIT_THR   (-90)
 #define COOLDOWN_MS        3000UL
 #define RSSI_INTERVAL_MS   50UL
-#define SIGNAL_LOST_MS     1000UL
+#define SIGNAL_LOST_MS      200UL
 
 // MAC scan
 #define MAX_SCAN_MACS    8
