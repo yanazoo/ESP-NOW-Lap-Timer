@@ -29,15 +29,18 @@ var sfx={
   exit:  ()=>beep(1100,.07,'sine')
 };
 
-// Resume paused speech (Chrome background tab) and recover from stuck state
+var speechQ=[],speechBusy=false,speechWarmedUp=false,lastSpeechStart=0;
+
+// Resume paused speech (Chrome background tab) and recover from stuck state.
+// Debounce: skip recovery for 1.5s after speak() to avoid double-firing while
+// the TTS engine is still initialising (speaking may briefly read false).
 setInterval(()=>{
   if(typeof speechSynthesis==='undefined')return;
   if(speechSynthesis.paused)speechSynthesis.resume();
-  // Recover if speechBusy is stuck but synthesis is no longer speaking
-  if(speechBusy&&!speechSynthesis.speaking){speechBusy=false;nextSpeech();}
+  if(speechBusy&&!speechSynthesis.speaking&&Date.now()-lastSpeechStart>1500){
+    speechBusy=false;nextSpeech();
+  }
 },1000);
-
-var speechQ=[],speechBusy=false,speechWarmedUp=false;
 var cachedJaVoice=null;
 
 function getJaVoice(){
@@ -61,7 +64,7 @@ function warmUpSpeech(){
 function speak(text){
   if(!voiceEnabled||announceMode==='none'){sfx.lap();return;}
   if(announceMode==='beep'){sfx.lap();return;}
-  if(speechQ.length<3)speechQ.push(text);
+  if(speechQ.length<8)speechQ.push(text);
   if(!speechBusy)nextSpeech();
 }
 function nextSpeech(){
@@ -72,11 +75,12 @@ function nextSpeech(){
   u.lang='ja-JP';u.rate=speechRate;
   var jaVoice=getJaVoice();
   if(jaVoice)u.voice=jaVoice;
-  // Dynamic timeout: 300ms per character, minimum 3s
-  var ms=Math.max(3000,text.length*300);
+  // Generous timeout accounting for speech rate; safety net only
+  var ms=Math.max(5000,text.length*500/Math.max(0.5,speechRate));
   var timeout=setTimeout(()=>{speechSynthesis.cancel();speechBusy=false;nextSpeech();},ms);
   u.onend=()=>{clearTimeout(timeout);setTimeout(nextSpeech,80);};
   u.onerror=()=>{clearTimeout(timeout);speechBusy=false;nextSpeech();};
+  lastSpeechStart=Date.now();
   speechSynthesis.speak(u);
 }
 function getSpokenName(p){return (p.yomi&&p.yomi!=='')?p.yomi:p.name;}
