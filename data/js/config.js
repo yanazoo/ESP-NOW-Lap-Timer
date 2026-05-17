@@ -17,7 +17,7 @@ function renderRoster(){
   var filter=(document.getElementById('searchInput').value||'').toLowerCase().trim();
   var list=document.getElementById('rosterList');
   var badge=document.getElementById('rosterCountBadge');
-  badge.textContent='('+rosterData.length+'/50)';
+  badge.textContent='('+rosterData.length+'/20)';
 
   var filtered=rosterData.filter(function(r){
     if(!filter)return true;
@@ -166,7 +166,7 @@ async function deleteRosterPilot(id){
   if(editingRosterId===id)editingRosterId=null;
   rosterData=rosterData.filter(x=>x.id!==id);
   var badge=document.getElementById('rosterCountBadge');
-  if(badge)badge.textContent='('+rosterData.length+'/50)';
+  if(badge)badge.textContent='('+rosterData.length+'/20)';
   try{
     var res=await fetch('/api/pilots/delete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});
     if(res.ok){await loadRoster();applyActiveToSlots();buildRaceCards();buildCalibCards();toast('削除しました');}
@@ -195,10 +195,13 @@ function updateScanList(){
       +  '<span style="color:var(--muted);font-size:11px">'+s.rssi+' dBm</span>'
       +  (done?'<span style="color:var(--ok);font-size:11px;font-weight:700">✓ 登録済み</span>':'')
       +'</div>'
-      +'<div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">'
+      +'<div style="display:flex;flex-direction:column;gap:4px;margin-bottom:6px">'
       +  '<input type="text" id="scanName-'+macId+'" placeholder="パイロット名" maxlength="20" value="'+esc(savedName)+'" autocomplete="off"'
-      +    ' style="flex:1;background:var(--bg);border:1px solid var(--bd);color:var(--tx);border-radius:6px;padding:5px 8px;font-size:13px"'
-      +    (done?' disabled':'')+' onkeydown="if(event.key===\'Enter\')registerScanPilot(\''+mac+'\')">' 
+      +    ' style="background:var(--bg);border:1px solid var(--bd);color:var(--tx);border-radius:6px;padding:5px 8px;font-size:13px"'
+      +    (done?' disabled':'')+' onkeydown="if(event.key===\'Enter\')registerScanPilot(\''+mac+'\')">'
+      +  '<input type="text" id="scanYomi-'+macId+'" placeholder="よみかた（TTS読み上げ用）" maxlength="20" autocomplete="off"'
+      +    ' style="background:var(--bg);border:1px solid var(--bd);color:var(--tx);border-radius:6px;padding:4px 8px;font-size:11px"'
+      +    (done?' disabled':'')+'>'
       +'</div>'
       +'<div style="display:flex;gap:5px;align-items:center">'
       +  '<span style="font-size:11px;color:var(--muted)">入</span>'
@@ -221,12 +224,14 @@ async function registerScanPilot(mac){
   if(!nameEl)return;
   var name=nameEl.value.trim();
   if(!name){toast('⚠️ 名前を入力してください');return;}
+  var yomiEl=document.getElementById('scanYomi-'+macId);
+  var yomi=yomiEl?yomiEl.value.trim():'';
   var enterEl=document.getElementById('scanEnter-'+macId);
   var exitEl=document.getElementById('scanExit-'+macId);
   var enter=enterEl?parseInt(enterEl.value)||(-80):-80;
   var exit_=exitEl?parseInt(exitEl.value)||(-90):-90;
   try{
-    var r=await fetch('/api/pilots',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,yomi:'',uid:mac})});
+    var r=await fetch('/api/pilots',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,yomi,uid:mac})});
     if(!r.ok){toast('⚠️ 登録エラー');return;}
     var body=await r.json();
     await fetch('/api/calib',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:body.id,enter,exit:exit_})});
