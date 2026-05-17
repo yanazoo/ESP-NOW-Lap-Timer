@@ -175,6 +175,8 @@ async function deleteRosterPilot(id){
 }
 
 function updateScanList(){
+  var _af=document.activeElement;
+  if(_af&&_af.id&&(_af.id.startsWith('scanName-')||_af.id.startsWith('scanYomi-')||_af.id.startsWith('scanEnter-')||_af.id.startsWith('scanExit-')))return;
   var el=document.getElementById('scanList');if(!el)return;
   var macs=Object.keys(scanResults).filter(function(mac){
     var s=scanResults[mac];

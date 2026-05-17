@@ -62,8 +62,8 @@ function onMsg(d){
       var rp=rosterData.find(r=>r.id===p.rosterIdx);
       if(rp&&rp.uid){
         var rmac=rp.uid.toUpperCase();var rnow=Date.now();
-        if(!scanResults[rmac]){scanResults[rmac]={rssi:p.rssi,ts:rnow,receivedAt:rnow,firstSeenAt:rnow};}
-        else{scanResults[rmac].rssi=p.rssi;scanResults[rmac].receivedAt=rnow;if(!scanResults[rmac].firstSeenAt)scanResults[rmac].firstSeenAt=rnow;}
+        if(!scanResults[rmac]){scanResults[rmac]={rssi:p.rssi,ts:rnow,receivedAt:rnow,firstSeenAt:rnow,assignedRosterId:rp.id,pilotName:rp.name};}
+        else{scanResults[rmac].rssi=p.rssi;scanResults[rmac].receivedAt=rnow;if(!scanResults[rmac].firstSeenAt)scanResults[rmac].firstSeenAt=rnow;scanResults[rmac].assignedRosterId=rp.id;scanResults[rmac].pilotName=rp.name;}
       }
     }
     var calibActive=document.getElementById('pane-calib').classList.contains('active');
