@@ -7,7 +7,7 @@
 #define GATE_BAUD     115200
 
 // Pilot limits
-#define MAX_REGISTERED  50
+#define MAX_REGISTERED  20
 #define MAX_ACTIVE       4
 #define MAX_LAPS       200
 #define DEFAULT_ENTER  (-80)
