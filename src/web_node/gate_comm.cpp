@@ -49,18 +49,20 @@ void sendGateCmd(const char* action) {
 
 void sendGatePilot(int slot) {
     int ri = activePilots[slot];
-    char buf[96];
+    JsonDocument doc;
+    doc["type"]   = "cmd";
+    doc["action"] = "set_pilot";
+    doc["pilot"]  = slot;
     if (ri < 0 || ri >= rosterCount || !roster[ri].hasUid) {
-        snprintf(buf, sizeof(buf),
-                 R"({"type":"cmd","action":"set_pilot","pilot":%d,"uid":"","name":""})", slot);
-        Serial1.println(buf);
+        doc["uid"]  = "";
+        doc["name"] = "";
     } else {
         char uid[18]; uidToStr(roster[ri].uid, uid);
-        snprintf(buf, sizeof(buf),
-                 R"({"type":"cmd","action":"set_pilot","pilot":%d,"uid":"%s","name":"%s"})",
-                 slot, uid, roster[ri].name);
-        Serial1.println(buf);
+        doc["uid"]  = uid;
+        doc["name"] = roster[ri].name;
     }
+    serializeJson(doc, Serial1);
+    Serial1.print('\n');
     delay(30);
 }
 
