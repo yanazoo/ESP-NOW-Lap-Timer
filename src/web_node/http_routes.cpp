@@ -238,7 +238,7 @@ void registerHttpRoutes() {
     // ── POST /api/sd/pilots/backup ────────────────────────────────────────────
     server.on("/api/sd/pilots/backup", HTTP_POST, [](AsyncWebServerRequest* req) {
         if (!sdPresent) { req->send(503,"application/json",R"({"error":"no sd card"})"); return; }
-        sendGateCmd("sd_begin_backup"); delay(20);
+        sendGateCmd("sd_begin_backup"); delay(300);
         for (int i = 0; i < rosterCount; i++) {
             JsonDocument row;
             row["type"]  = "cmd"; row["action"] = "sd_backup_row";
@@ -250,7 +250,7 @@ void registerHttpRoutes() {
             int slot = -1;
             for (int s = 0; s < MAX_ACTIVE; s++) { if (activePilots[s] == i) { slot = s; break; } }
             row["slot"]  = slot;
-            serializeJson(row, Serial1); Serial1.print('\n'); delay(10);
+            serializeJson(row, Serial1); Serial1.print('\n'); delay(80);
         }
         sendGateCmd("sd_end_backup");
         req->send(200,"application/json",R"({"ok":true})");

@@ -13,6 +13,7 @@ void setup() {
     Serial.begin(DEBUG_BAUD);
     Serial.println("\n[Gate] ELRS Backpack Lap Timer — Gate Node");
 
+    Serial1.setRxBufferSize(2048);
     Serial1.begin(UART_BAUD, SERIAL_8N1, WEB_NODE_RX_PIN, WEB_NODE_TX_PIN);
 
     initPilots();
