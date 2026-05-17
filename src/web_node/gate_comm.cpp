@@ -203,6 +203,8 @@ void processGateLine(const String& line) {
                        &roster[id].uid[3], &roster[id].uid[4], &roster[id].uid[5]);
             rosterCal[id].enterRssi = row["enter"] | DEFAULT_ENTER;
             rosterCal[id].exitRssi  = row["exit"]  | DEFAULT_EXIT;
+            int slot = row["slot"] | -1;
+            if (slot >= 0 && slot < MAX_ACTIVE) activePilots[slot] = id;
             saveRosterPilot(id);
         }
         saveRosterCount();

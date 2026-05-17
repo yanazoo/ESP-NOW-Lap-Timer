@@ -103,7 +103,8 @@ void processWebCmd(const String& line) {
             doc["yomi"]  | "",
             doc["mac"]   | "",
             doc["enter"] | DEFAULT_ENTRY_THR,
-            doc["exit"]  | DEFAULT_EXIT_THR
+            doc["exit"]  | DEFAULT_EXIT_THR,
+            doc["slot"]  | -1
         );
     } else if (strcmp(action, "sd_end_backup") == 0) {
         sdEndBackup();

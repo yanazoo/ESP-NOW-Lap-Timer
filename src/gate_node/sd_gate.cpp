@@ -110,7 +110,7 @@ void sdBeginBackup() {
     backupFile = SD.open("/pilots.csv", FILE_WRITE);
     if (backupFile) {
         backupFile.print("\xEF\xBB\xBF");  // UTF-8 BOM for Excel compatibility
-        backupFile.println("name,yomi,mac,enter,exit");
+        backupFile.println("name,yomi,mac,enter,exit,slot");
         backupFile.flush();
         Serial.println("[Gate] SD backup: /pilots.csv opened");
     } else {
@@ -119,9 +119,9 @@ void sdBeginBackup() {
 }
 
 void sdWriteBackupRow(const char* name, const char* yomi,
-                      const char* mac, int enter, int exit_) {
+                      const char* mac, int enter, int exit_, int slot) {
     if (!backupFile) return;
-    backupFile.printf("%s,%s,%s,%d,%d\n", name, yomi, mac, enter, exit_);
+    backupFile.printf("%s,%s,%s,%d,%d,%d\n", name, yomi, mac, enter, exit_, slot);
     backupFile.flush();
 }
 
@@ -152,13 +152,16 @@ void sdHandleRestore() {
         int c3 = line.indexOf(',', c2 + 1);
         int c4 = line.indexOf(',', c3 + 1);
         if (c1 < 0 || c2 < 0 || c3 < 0 || c4 < 0) continue;
+        int c5 = line.indexOf(',', c4 + 1);  // slot column (optional, new format)
         JsonDocument row;
         row["type"]  = "sd_pilot_row";
         row["name"]  = line.substring(0, c1);
         row["yomi"]  = line.substring(c1 + 1, c2);
         row["mac"]   = line.substring(c2 + 1, c3);
         row["enter"] = line.substring(c3 + 1, c4).toInt();
-        row["exit"]  = line.substring(c4 + 1).toInt();
+        row["exit"]  = (c5 >= 0) ? line.substring(c4 + 1, c5).toInt()
+                                  : line.substring(c4 + 1).toInt();
+        row["slot"]  = (c5 >= 0) ? line.substring(c5 + 1).toInt() : -1;
         serializeJson(row, Serial1);
         Serial1.print('\n');
     }

@@ -11,7 +11,7 @@ void sdWriteLap(int slotIdx, uint32_t lapMs, int lapCount);
 void sdEndRace();
 void sdBeginBackup();
 void sdWriteBackupRow(const char* name, const char* yomi,
-                      const char* mac, int enter, int exit_);
+                      const char* mac, int enter, int exit_, int slot);
 void sdEndBackup();
 void sdHandleRestore();
 void sdListFiles();

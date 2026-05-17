@@ -241,12 +241,15 @@ void registerHttpRoutes() {
         sendGateCmd("sd_begin_backup"); delay(20);
         for (int i = 0; i < rosterCount; i++) {
             JsonDocument row;
-            row["type"]  = "cmd"; row["action"]= "sd_backup_row";
-            row["name"]  = roster[i].name; row["yomi"]  = roster[i].yomi;
+            row["type"]  = "cmd"; row["action"] = "sd_backup_row";
+            row["name"]  = roster[i].name; row["yomi"] = roster[i].yomi;
             char u[18];
             if (roster[i].hasUid) uidToStr(roster[i].uid, u); else u[0] = '\0';
             row["mac"]   = u;
-            row["enter"] = rosterCal[i].enterRssi; row["exit"]  = rosterCal[i].exitRssi;
+            row["enter"] = rosterCal[i].enterRssi; row["exit"] = rosterCal[i].exitRssi;
+            int slot = -1;
+            for (int s = 0; s < MAX_ACTIVE; s++) { if (activePilots[s] == i) { slot = s; break; } }
+            row["slot"]  = slot;
             serializeJson(row, Serial1); Serial1.print('\n'); delay(10);
         }
         sendGateCmd("sd_end_backup");
