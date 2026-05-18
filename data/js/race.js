@@ -126,7 +126,13 @@ async function clearAllLaps(){
   if(hasData){
     try{
       var r=await fetch('/api/race/save',{method:'POST'});
-      if(r.ok){var j=await r.json();toast(j.laps===0?'記録なし — 保存スキップ':'✅ レース結果をSDに保存しました');}
+      if(r.ok){
+        var j=await r.json();
+        if(j.saved)toast('✅ レース結果をSDに保存しました');
+        else if(j.reason==='off')toast('ℹ️ SDログOFF — 未保存のままクリアしました');
+        else if(j.reason==='empty')toast('記録なし');
+        else toast('⚠️ SDカードなし — 未保存のままクリアしました',3500);
+      }
       else toast('⚠️ SD保存エラー');
     }catch(e){toast('⚠️ SD保存 接続エラー');}
   }
