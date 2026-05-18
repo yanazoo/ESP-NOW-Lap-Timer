@@ -9,7 +9,8 @@ void sdInit();
 void sdSendStatus();
 void sdCheckHotplug(uint32_t now);
 void sdBeginRace();
-void sdWriteLap(int slotIdx, uint32_t lapMs, int lapCount);
+void sdWriteRaceRow(int slot, const char* name, const char* uid,
+                    int lap, uint32_t lapMs, int rssi, uint32_t ts);
 void sdEndRace();
 void sdBeginBackup();
 void sdWriteBackupRow(const char* name, const char* yomi,

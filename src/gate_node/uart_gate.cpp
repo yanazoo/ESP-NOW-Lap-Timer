@@ -22,7 +22,6 @@ void sendLap(int idx, uint32_t lapMs) {
     pilots[idx].lapCount++;
     Serial.printf("[Gate] LAP  pilot=%d  lap=%d  rssi=%d  lapMs=%lu\n",
                   idx, pilots[idx].lapCount, pilots[idx].peakRssi, (unsigned long)lapMs);
-    sdWriteLap(idx, lapMs, pilots[idx].lapCount);
 }
 
 void sendRssi(int idx, uint32_t now) {
@@ -52,14 +51,22 @@ void processWebCmd(const String& line) {
     const char* action = doc["action"] | "";
 
     if (strcmp(action, "race_start") == 0) {
-        sdEndRace();
         resetPilots();
-        sdBeginRace();
         char ackBuf[48];
         snprintf(ackBuf, sizeof(ackBuf), R"({"type":"race_start_ack","ts":%lu})", (unsigned long)millis());
         Serial1.println(ackBuf);
 
-    } else if (strcmp(action, "race_stop") == 0) {
+    } else if (strcmp(action, "sd_race_save_begin") == 0) {
+        sdBeginRace();
+    } else if (strcmp(action, "sd_race_save_row") == 0) {
+        sdWriteRaceRow(doc["slot"]  | -1,
+                       doc["name"]  | "",
+                       doc["uid"]   | "",
+                       doc["lap"]   | 0,
+                       (uint32_t)(doc["lapMs"] | 0u),
+                       doc["rssi"]  | -120,
+                       (uint32_t)(doc["ts"] | 0u));
+    } else if (strcmp(action, "sd_race_save_end") == 0) {
         sdEndRace();
 
     } else if (strcmp(action, "set_pilot") == 0) {

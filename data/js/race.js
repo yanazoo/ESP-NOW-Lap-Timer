@@ -121,13 +121,22 @@ function stopRace(){
   ensureAudio();beepSeq([[880,.2,'sine',0],[440,.2,'sine',220],[220,.3,'sine',440]]);
   fetch('/api/race/stop',{method:'POST'}).catch(()=>{});
 }
-function clearAllLaps(){
+async function clearAllLaps(){
+  var hasData=slots.some(p=>p.lapCount>0);
+  if(hasData){
+    try{
+      var r=await fetch('/api/race/save',{method:'POST'});
+      if(r.ok){var j=await r.json();toast(j.laps===0?'記録なし — 保存スキップ':'✅ レース結果をSDに保存しました');}
+      else toast('⚠️ SD保存エラー');
+    }catch(e){toast('⚠️ SD保存 接続エラー');}
+  }
   stopTimer();
   timerEl.textContent='00:00';
   slots.forEach(p=>{
     p.lapCount=0;p.bestLapMs=0;p.lapTimes=[];p.cumulative=0;
-    var b=document.getElementById('lapBody'+p.id);if(b)b.innerHTML='';
-    var d=document.getElementById('rcDelta'+p.id);if(d)d.textContent='';
+    var e=p.el;
+    var b=e?e.body:document.getElementById('lapBody'+p.id);if(b)b.innerHTML='';
+    var d=e?e.delta:document.getElementById('rcDelta'+p.id);if(d)d.textContent='';
     updateRaceCard(p);
   });
 }

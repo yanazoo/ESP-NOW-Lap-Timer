@@ -191,7 +191,8 @@ void processGateLine(const String& line) {
         if (lapMs > 0 && (rt[s].bestLapMs == 0 || lapMs < rt[s].bestLapMs)) {
             rt[s].bestLapMs = lapMs; newBest = true;
         }
-        if (lapCount < MAX_LAPS) laps[lapCount++] = { s, ri, lapMs, ts };
+        int lapRssi = doc["rssi"] | -120;
+        if (lapCount < MAX_LAPS) laps[lapCount++] = { s, ri, lapMs, ts, lapRssi };
 
         JsonDocument wd;
         wd["type"]     = "lap";

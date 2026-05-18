@@ -184,9 +184,40 @@ void registerHttpRoutes() {
     // ── POST /api/race/stop ───────────────────────────────────────────────────
     server.on("/api/race/stop", HTTP_POST, [](AsyncWebServerRequest* req) {
         raceRunning = false;
-        sendGateCmd("race_stop");
         JsonDocument doc; doc["type"]="race_stop";
         String msg; serializeJson(doc,msg); wsText(msg);
+        req->send(200,"application/json",R"({"ok":true})");
+    });
+
+    // ── POST /api/race/save ───────────────────────────────────────────────────
+    // Write the in-memory lap history to SD as one CSV (triggered by the
+    // "全周回クリア" button). SD log mode (off/rotate) is honoured by the gate.
+    server.on("/api/race/save", HTTP_POST, [](AsyncWebServerRequest* req) {
+        if (lapCount <= 0) { req->send(200,"application/json",R"({"ok":true,"laps":0})"); return; }
+        sendGateCmd("sd_race_save_begin");
+        delay(300);
+        int perSlot[MAX_ACTIVE] = {0};
+        for (int i = 0; i < lapCount; i++) {
+            int s  = laps[i].slot;
+            int ri = laps[i].rosterIdx;
+            int lapNo = (s >= 0 && s < MAX_ACTIVE) ? ++perSlot[s] : 0;
+            char uid[18] = "";
+            if (ri >= 0 && ri < rosterCount && roster[ri].hasUid) uidToStr(roster[ri].uid, uid);
+            JsonDocument row;
+            row["type"]   = "cmd";
+            row["action"] = "sd_race_save_row";
+            row["slot"]   = s;
+            row["name"]   = (ri >= 0 && ri < rosterCount) ? roster[ri].name : "---";
+            row["uid"]    = uid;
+            row["lap"]    = lapNo;
+            row["lapMs"]  = laps[i].lapTimeMs;
+            row["rssi"]   = laps[i].rssi;
+            row["ts"]     = laps[i].timestamp;
+            serializeJson(row, Serial1); Serial1.print('\n');
+            delay(15);
+        }
+        sendGateCmd("sd_race_save_end");
+        lapCount = 0;
         req->send(200,"application/json",R"({"ok":true})");
     });
 

@@ -23,6 +23,7 @@ struct LapRecord {
     int      rosterIdx;
     uint32_t lapTimeMs;
     uint32_t timestamp;
+    int      rssi;
 };
 
 struct SlotRuntime {

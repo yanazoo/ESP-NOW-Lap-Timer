@@ -106,18 +106,19 @@ void sdBeginRace() {
     }
 }
 
-void sdWriteLap(int slotIdx, uint32_t lapMs, int lapCount) {
+// One race result row, written from web-provided values at "clear" time.
+// No per-row flush; sdEndRace() close() finalizes and persists the file.
+void sdWriteRaceRow(int slot, const char* name, const char* uid,
+                    int lap, uint32_t lapMs, int rssi, uint32_t ts) {
     if (!sdPresent || !raceFile) return;
-    char macStr[18];
-    macToStr(pilots[slotIdx].uid, macStr);
-    const char* name = pilots[slotIdx].name[0] ? pilots[slotIdx].name : macStr;
     raceFile.printf("%d,%s,%s,%d,%lu,%d,%lu\n",
-                    slotIdx, name, macStr,
-                    lapCount,
+                    slot,
+                    (name && name[0]) ? name : (uid ? uid : ""),
+                    uid ? uid : "",
+                    lap,
                     (unsigned long)lapMs,
-                    pilots[slotIdx].peakRssi,
-                    (unsigned long)pilots[slotIdx].peakTime);
-    raceFile.flush();
+                    rssi,
+                    (unsigned long)ts);
 }
 
 void sdEndRace() {
