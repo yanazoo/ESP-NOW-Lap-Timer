@@ -140,13 +140,8 @@ async function saveCalibConfig(slotId){
     var r=await fetch('/api/calib',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:ri,enter,exit:exit_})});
     if(r.ok){
       var rd=rosterById[ri];if(rd){rd.enter=enter;rd.exit=exit_;}
-      // Reflect the new thresholds in the pilot-info UI immediately.
-      if(editingRosterId===ri){
-        var ee=document.getElementById('editEnter'),xe=document.getElementById('editExit');
-        if(ee)ee.value=enter;if(xe)xe.value=exit_;
-      }else if(editingRosterId===null){
-        renderRoster();
-      }
+      // Unconditionally reflect the new thresholds in the pilot-info UI.
+      renderRoster();
     }else toast('⚠️ 保存エラー');
   }catch(e){toast('⚠️ 接続エラー');}
 }
