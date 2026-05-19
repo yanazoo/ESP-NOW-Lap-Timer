@@ -79,6 +79,7 @@ function switchTab(tab){
   }
   if(tab==='sd') refreshSdFiles();
   if(tab==='config'){
+    if(editingRosterId===null) renderRoster();
     if(!scanAutoRefreshH) scanAutoRefreshH=setInterval(()=>{
       scanRefresh();
       if(editingRosterId===null) renderRoster();
