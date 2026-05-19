@@ -1,17 +1,42 @@
 'use strict';
 
-var actx=null;
+var actx=null,audioUnlocked=false;
 function ensureAudio(){
-  if(!actx)actx=new(window.AudioContext||window.webkitAudioContext)();
-  if(actx.state==='suspended')actx.resume();
+  try{
+    if(!actx)actx=new(window.AudioContext||window.webkitAudioContext)();
+    if(actx.state==='suspended')actx.resume();
+    // Android Chrome only fully unlocks WebAudio when an actual node has
+    // produced output inside a user gesture; resume() alone is not enough.
+    if(!audioUnlocked){
+      var o=actx.createOscillator(),g=actx.createGain();
+      g.gain.value=0.00001;o.connect(g);g.connect(actx.destination);
+      var t=actx.currentTime;o.start(t);o.stop(t+0.03);
+      audioUnlocked=true;
+    }
+  }catch(e){}
   warmUpSpeech();
 }
+
+// Unlock audio + speech on the very first user interaction anywhere on the
+// page. Race crossing/lap sounds and TTS fire from WebSocket events (no
+// gesture), so without this Android stays muted until a specific button is
+// pressed. Also recover the context after backgrounding (screen lock).
+(function(){
+  function unlock(){ensureAudio();}
+  ['pointerdown','touchstart','mousedown','keydown','click'].forEach(function(ev){
+    document.addEventListener(ev,unlock,{capture:true,passive:true});
+  });
+  document.addEventListener('visibilitychange',function(){
+    if(!document.hidden&&actx&&actx.state==='suspended')actx.resume();
+  });
+})();
 // Layered voice: fundamental + chorus-detuned twin + sub-octave (body) +
 // soft upper harmonic (presence), routed through a lowpass for warmth and
 // a click-free attack / smooth exponential release. Same signature as before
 // so existing call sites get the deeper, richer tone automatically.
 function beep(freq,dur,type,vol){
   if(!actx)return;
+  if(actx.state==='suspended'){try{actx.resume();}catch(e){}}
   type=type||'sine';
   vol=(vol===undefined?0.4:vol);
   var t=actx.currentTime;
@@ -60,7 +85,7 @@ var sfx={
   exit:  ()=>beep(740,.09,'triangle')
 };
 
-var speechQ=[],speechBusy=false,speechWarmedUp=false,lastSpeechStart=0;
+var speechQ=[],speechBusy=false,speechWarmedUp=false,speechWarming=false,lastSpeechStart=0;
 
 // Resume paused speech (Chrome background tab) and recover from stuck state.
 // Debounce: skip recovery for 1.5s after speak() to avoid double-firing while
@@ -84,12 +109,22 @@ if(typeof speechSynthesis!=='undefined'&&'onvoiceschanged' in speechSynthesis){
   speechSynthesis.onvoiceschanged=function(){cachedJaVoice=null;};
 }
 
+// Android Chrome only unlocks TTS once a speak() actually starts from a
+// user gesture. A zero-volume/empty utterance is often dropped without
+// unlocking, so retry (driven by repeated gesture calls) with a real but
+// silent utterance until one truly starts.
 function warmUpSpeech(){
-  if(speechWarmedUp||typeof speechSynthesis==='undefined')return;
-  speechWarmedUp=true;
-  var u=new SpeechSynthesisUtterance('​');
-  u.volume=0;
-  speechSynthesis.speak(u);
+  if(speechWarmedUp||speechWarming||typeof speechSynthesis==='undefined')return;
+  try{
+    if(speechSynthesis.paused)speechSynthesis.resume();
+    speechWarming=true;
+    var u=new SpeechSynthesisUtterance(' ');
+    u.volume=0;u.lang='ja-JP';
+    u.onstart=()=>{speechWarmedUp=true;speechWarming=false;};
+    u.onend=()=>{speechWarmedUp=true;speechWarming=false;};
+    u.onerror=()=>{speechWarming=false;};
+    speechSynthesis.speak(u);
+  }catch(e){speechWarming=false;}
 }
 
 function speak(text){
