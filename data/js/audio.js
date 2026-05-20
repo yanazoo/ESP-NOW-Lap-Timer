@@ -87,16 +87,24 @@ var sfx={
 
 var speechQ=[],speechBusy=false,speechWarmedUp=false,speechWarming=false,lastSpeechStart=0;
 
-// Resume paused speech (Chrome background tab) and recover from stuck state.
-// Debounce: skip recovery for 1.5s after speak() to avoid double-firing while
-// the TTS engine is still initialising (speaking may briefly read false).
+// iOS Safari often fails to fire onend / reports speaking inconsistently
+// and rapid speak() calls can drop the second utterance. Poll frequently
+// and advance the queue whenever the engine is no longer speaking.
 setInterval(()=>{
   if(typeof speechSynthesis==='undefined')return;
   if(speechSynthesis.paused)speechSynthesis.resume();
-  if(speechBusy&&!speechSynthesis.speaking&&Date.now()-lastSpeechStart>1500){
+  if(speechBusy&&!speechSynthesis.speaking&&Date.now()-lastSpeechStart>800){
     speechBusy=false;nextSpeech();
   }
-},1000);
+},250);
+// iOS keep-alive: nudge a long-running utterance so the engine doesn't
+// silently stall (well-known iOS Safari TTS bug).
+setInterval(()=>{
+  if(typeof speechSynthesis==='undefined')return;
+  if(speechSynthesis.speaking&&Date.now()-lastSpeechStart>8000){
+    try{speechSynthesis.pause();speechSynthesis.resume();}catch(e){}
+  }
+},5000);
 var cachedJaVoice=null;
 
 function getJaVoice(){
@@ -141,13 +149,29 @@ function nextSpeech(){
   u.lang='ja-JP';u.rate=speechRate;
   var jaVoice=getJaVoice();
   if(jaVoice)u.voice=jaVoice;
-  // Generous timeout accounting for speech rate; safety net only
-  var ms=Math.max(5000,text.length*500/Math.max(0.5,speechRate));
-  var timeout=setTimeout(()=>{speechSynthesis.cancel();speechBusy=false;nextSpeech();},ms);
-  u.onend=()=>{clearTimeout(timeout);setTimeout(nextSpeech,80);};
-  u.onerror=()=>{clearTimeout(timeout);speechBusy=false;nextSpeech();};
+  // Soft timeout = expected duration + grace. On iOS, onend often never
+  // fires, so we advance the queue once the engine reports it's no longer
+  // speaking. Hard timeout = forced cancel + advance as a last resort.
+  var rate=Math.max(0.5,speechRate);
+  var estMs=Math.max(900,text.length*200/rate);
+  var hardMs=Math.max(5000,estMs*2);
+  var done=false;
+  function advance(cancel){
+    if(done)return;done=true;
+    clearTimeout(softT);clearTimeout(hardT);
+    if(cancel){try{speechSynthesis.cancel();}catch(e){}}
+    speechBusy=false;
+    setTimeout(nextSpeech,60);
+  }
+  var softT=setTimeout(()=>{if(!speechSynthesis.speaking)advance(false);},estMs+400);
+  var hardT=setTimeout(()=>advance(true),hardMs);
+  u.onend=()=>advance(false);
+  u.onerror=()=>advance(false);
   lastSpeechStart=Date.now();
-  speechSynthesis.speak(u);
+  try{
+    if(speechSynthesis.paused)speechSynthesis.resume();
+    speechSynthesis.speak(u);
+  }catch(e){advance(false);}
 }
 function getSpokenName(p){return (p.yomi&&p.yomi!=='')?p.yomi:p.name;}
 function buildSpeech(p,lapCount,lapMs){
