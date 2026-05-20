@@ -117,19 +117,20 @@ if(typeof speechSynthesis!=='undefined'&&'onvoiceschanged' in speechSynthesis){
   speechSynthesis.onvoiceschanged=function(){cachedJaVoice=null;};
 }
 
-// iOS Safari (and some Android engines) silently drop a volume:0 or
-// whitespace-only utterance, which means our warm-up never counts as the
-// first user-gesture speak() and lap-time TTS stays muted until the user
-// explicitly hits "音声テスト". Speak a real 1-character utterance at a
-// barely-audible volume so the engine truly unlocks while remaining
-// effectively silent.
+// iOS Safari refuses to unlock TTS on silent/empty utterances no matter
+// how they are encoded. PhobosLT_4ch works around this by speaking a real
+// audible Japanese phrase when the voice toggle is enabled, which is what
+// actually unlocks the engine. Mirror that: speak a brief audible word at
+// low volume on the first user gesture so subsequent (gesture-less) lap
+// announcements come through without the user having to press 音声テスト.
 function warmUpSpeech(){
   if(speechWarmedUp||speechWarming||typeof speechSynthesis==='undefined')return;
   try{
     if(speechSynthesis.paused)speechSynthesis.resume();
     speechWarming=true;
-    var u=new SpeechSynthesisUtterance('.');
-    u.volume=0.01;u.lang='ja-JP';u.rate=speechRate;
+    var audible=!!voiceEnabled;
+    var u=new SpeechSynthesisUtterance(audible?'オン':'​');
+    u.volume=audible?0.3:0;u.lang='ja-JP';u.rate=speechRate;
     var jaVoice=getJaVoice();
     if(jaVoice)u.voice=jaVoice;
     u.onstart=()=>{speechWarmedUp=true;speechWarming=false;};
@@ -201,6 +202,22 @@ function toggleVoice(){
   voiceEnabled=!voiceEnabled;
   localStorage.setItem('voice',voiceEnabled?'1':'0');
   refreshVoiceBtns();
+  // Audible confirmation on enable doubles as the iOS Safari TTS unlock
+  // (matches the proven PhobosLT_4ch pattern). Cancel anything pending
+  // when disabling.
+  if(typeof speechSynthesis==='undefined')return;
+  if(voiceEnabled){
+    try{
+      var u=new SpeechSynthesisUtterance('音声オン');
+      u.lang='ja-JP';u.rate=speechRate;u.volume=0.5;
+      var jaVoice=getJaVoice();if(jaVoice)u.voice=jaVoice;
+      speechSynthesis.speak(u);
+      speechWarmedUp=true;
+    }catch(e){}
+  }else{
+    try{speechSynthesis.cancel();}catch(e){}
+    speechQ=[];speechBusy=false;
+  }
 }
 function refreshVoiceBtns(){
   ['voiceToggle','voiceToggle2'].forEach(id=>{
