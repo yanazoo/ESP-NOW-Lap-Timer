@@ -14,7 +14,6 @@ function ensureAudio(){
       audioUnlocked=true;
     }
   }catch(e){}
-  warmUpSpeech();
 }
 
 // Unlock audio + speech on the very first user interaction anywhere on the
@@ -117,22 +116,17 @@ if(typeof speechSynthesis!=='undefined'&&'onvoiceschanged' in speechSynthesis){
   speechSynthesis.onvoiceschanged=function(){cachedJaVoice=null;};
 }
 
-// iOS Safari refuses to unlock TTS on silent/empty utterances no matter
-// how they are encoded. PhobosLT_4ch works around this by speaking a real
-// audible Japanese phrase when the voice toggle is enabled, which is what
-// actually unlocks the engine. Mirror that: speak a brief audible word at
-// low volume on the first user gesture so subsequent (gesture-less) lap
-// announcements come through without the user having to press 音声テスト.
+// Silent TTS warm-up. Called explicitly from the Start button (an
+// unambiguous user gesture) so unlock is tied to "press Start to begin".
+// On iOS Safari a silent primer may not be enough; if that happens the
+// user can fall back to the audible voice toggle (toggleVoice).
 function warmUpSpeech(){
   if(speechWarmedUp||speechWarming||typeof speechSynthesis==='undefined')return;
   try{
     if(speechSynthesis.paused)speechSynthesis.resume();
     speechWarming=true;
-    var audible=!!voiceEnabled;
-    var u=new SpeechSynthesisUtterance(audible?'オン':'​');
-    u.volume=audible?0.3:0;u.lang='ja-JP';u.rate=speechRate;
-    var jaVoice=getJaVoice();
-    if(jaVoice)u.voice=jaVoice;
+    var u=new SpeechSynthesisUtterance('​');
+    u.volume=0;u.lang='ja-JP';u.rate=speechRate;
     u.onstart=()=>{speechWarmedUp=true;speechWarming=false;};
     u.onend=()=>{speechWarmedUp=true;speechWarming=false;};
     u.onerror=()=>{speechWarming=false;};
