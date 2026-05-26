@@ -37,9 +37,9 @@ void resetPilots() {
     Serial.println("[Gate] Pilot state reset");
 }
 
-int findPilot(const uint8_t* mac) {
+int findPilotByUID(const uint8_t* uid) {
     for (int i = 0; i < MAX_PILOTS; i++) {
-        if (pilots[i].hasUid && memcmp(pilots[i].uid, mac, 6) == 0) return i;
+        if (pilots[i].hasUid && memcmp(pilots[i].uid, uid, 6) == 0) return i;
     }
     return -1;
 }

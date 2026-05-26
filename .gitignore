@@ -6,3 +6,6 @@ compile_commands.json
 .vscode/launch.json
 .vscode/ipch
 .vscode/c_cpp_properties.json
+
+# EP1 sniffer local secrets (real UIDs / Gate MAC live here — never commit)
+src/gate_ep1/secrets.h

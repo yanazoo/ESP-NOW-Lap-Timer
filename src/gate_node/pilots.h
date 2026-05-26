@@ -2,12 +2,6 @@
 #include <stdint.h>
 #include "config.h"
 
-struct PacketInfo {
-    uint8_t mac[6];
-    int8_t  rssi;
-    bool    isEspNow;
-};
-
 struct PilotState {
     uint8_t  uid[6];
     bool     hasUid;
@@ -29,8 +23,8 @@ extern PilotState pilots[MAX_PILOTS];
 
 void initPilots();
 void resetPilots();
-int  findPilot(const uint8_t* mac);
+int  findPilotByUID(const uint8_t* uid);
 bool anyPilotRegistered();
-void macToStr(const uint8_t* mac, char* buf);
-void reportScanMac(const uint8_t* mac, int8_t rssi);
+void macToStr(const uint8_t* uid, char* buf);
+void reportScanMac(const uint8_t* uid, int8_t rssi);
 void resetScanTimers();

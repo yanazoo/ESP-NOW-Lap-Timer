@@ -19,7 +19,7 @@ void setup() {
 
     initPilots();
     sdInit();
-    setupPromiscuous();
+    setupEspNowGate();
 
     char buf[64];
     snprintf(buf, sizeof(buf), R"({"type":"ready","pilots":%d})", MAX_PILOTS);
@@ -52,14 +52,14 @@ void loop() {
         }
     }
 
-    PacketInfo info;
-    while (xQueueReceive(packetQueue, &info, 0) == pdTRUE) {
-        int idx = findPilot(info.mac);
+    GateEP1Packet_t pkt;
+    while (xQueueReceive(packetQueue, &pkt, 0) == pdTRUE) {
+        int idx = findPilotByUID(pkt.pilot_uid);
         if (idx >= 0) {
-            pilots[idx].rawRssi = info.rssi;
+            pilots[idx].rawRssi = pkt.rssi;
             pilots[idx].lastPacketTime = now;
-        } else if (info.isEspNow) {
-            reportScanMac(info.mac, info.rssi);
+        } else {
+            reportScanMac(pkt.pilot_uid, pkt.rssi);
         }
     }
 
