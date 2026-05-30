@@ -1,8 +1,9 @@
 'use strict';
 
-const PCOLORS = ['var(--p0)','var(--p1)','var(--p2)','var(--p3)'];
-const PCLS    = ['p0','p1','p2','p3'];
-const N = 4;
+const PCOLORS = ['var(--p0)','var(--p1)','var(--p2)','var(--p3)',
+                 'var(--p4)','var(--p5)','var(--p6)','var(--p7)'];
+const PCLS    = ['p0','p1','p2','p3','p4','p5','p6','p7'];
+const N = 8;
 
 const slots = Array.from({length:N}, (_,i) => ({
   id:i, name:'---', yomi:'', rosterIdx:-1, rssi:-120, crossing:false,
@@ -20,7 +21,7 @@ function rebuildRosterIndex(){
     if(r.uid)rosterByUid[r.uid.toUpperCase()]=r;
   }
 }
-var activeSlotsLocal = [-1,-1,-1,-1];
+var activeSlotsLocal = Array(N).fill(-1);
 
 var raceRunning=false, raceStartPerf=0, timerH=null, countdownH=null;
 var raceStarted=false, timerFrozenMs=0;

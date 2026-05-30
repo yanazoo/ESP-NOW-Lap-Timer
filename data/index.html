@@ -12,8 +12,11 @@
   --tx:#e6edf3;--muted:#8b949e;--accent:#58a6ff;--accent-d:#1f6feb;
   --ok:#3fb950;--err:#f85149;--warn:#d29922;
   --p0:#58a6ff;--p1:#f85149;--p2:#3fb950;--p3:#d29922;
+  --p4:#a371f7;--p5:#ec6cb9;--p6:#56d4dd;--p7:#f0883e;
   --p0-bg:rgba(88,166,255,.12);--p1-bg:rgba(248,81,73,.12);
   --p2-bg:rgba(63,185,80,.12);--p3-bg:rgba(210,153,34,.12);
+  --p4-bg:rgba(163,113,247,.12);--p5-bg:rgba(236,108,185,.12);
+  --p6-bg:rgba(86,212,221,.12);--p7-bg:rgba(240,136,62,.12);
 }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;background:var(--bg);color:var(--tx);min-height:100vh;display:flex;flex-direction:column;font-size:14px}
@@ -58,6 +61,10 @@ button:not(:disabled):hover{filter:brightness(1.15)}
 .pilot-card-header.p1{background:var(--p1-bg);border-bottom:2px solid var(--p1);color:var(--p1)}
 .pilot-card-header.p2{background:var(--p2-bg);border-bottom:2px solid var(--p2);color:var(--p2)}
 .pilot-card-header.p3{background:var(--p3-bg);border-bottom:2px solid var(--p3);color:var(--p3)}
+.pilot-card-header.p4{background:var(--p4-bg);border-bottom:2px solid var(--p4);color:var(--p4)}
+.pilot-card-header.p5{background:var(--p5-bg);border-bottom:2px solid var(--p5);color:var(--p5)}
+.pilot-card-header.p6{background:var(--p6-bg);border-bottom:2px solid var(--p6);color:var(--p6)}
+.pilot-card-header.p7{background:var(--p7-bg);border-bottom:2px solid var(--p7);color:var(--p7)}
 .p-name{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .p-lapcount{font-size:11px;font-weight:normal;color:var(--muted);white-space:nowrap}
 .crossing-badge{font-size:9px;font-weight:700;letter-spacing:.5px;padding:2px 6px;border-radius:3px;background:#333;color:var(--muted);display:none}
@@ -68,6 +75,8 @@ button:not(:disabled):hover{filter:brightness(1.15)}
 .rssi-mini-fill{height:100%;width:0%;border-radius:3px;transition:width .05s}
 .p0 .rssi-mini-fill,.p0-fill{background:var(--p0)}.p1 .rssi-mini-fill,.p1-fill{background:var(--p1)}
 .p2 .rssi-mini-fill,.p2-fill{background:var(--p2)}.p3 .rssi-mini-fill,.p3-fill{background:var(--p3)}
+.p4 .rssi-mini-fill,.p4-fill{background:var(--p4)}.p5 .rssi-mini-fill,.p5-fill{background:var(--p5)}
+.p6 .rssi-mini-fill,.p6-fill{background:var(--p6)}.p7 .rssi-mini-fill,.p7-fill{background:var(--p7)}
 .rssi-mini-val{font-size:10px;color:var(--muted);min-width:36px;text-align:right}
 .pilot-best-row{display:flex;align-items:center;gap:6px;padding:4px 8px;background:var(--sf2);border-top:1px solid var(--bd)}
 .best-label{font-size:9px;color:var(--muted);width:26px}
@@ -100,6 +109,10 @@ button:not(:disabled):hover{filter:brightness(1.15)}
 .active-badge.p1{background:var(--p1-bg);color:var(--p1);border:1px solid var(--p1)}
 .active-badge.p2{background:var(--p2-bg);color:var(--p2);border:1px solid var(--p2)}
 .active-badge.p3{background:var(--p3-bg);color:var(--p3);border:1px solid var(--p3)}
+.active-badge.p4{background:var(--p4-bg);color:var(--p4);border:1px solid var(--p4)}
+.active-badge.p5{background:var(--p5-bg);color:var(--p5);border:1px solid var(--p5)}
+.active-badge.p6{background:var(--p6-bg);color:var(--p6);border:1px solid var(--p6)}
+.active-badge.p7{background:var(--p7-bg);color:var(--p7);border:1px solid var(--p7)}
 .online-badge{font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;background:rgba(63,185,80,.15);color:var(--ok);border:1px solid var(--ok);white-space:nowrap}
 .roster-actions{display:flex;gap:4px;flex-shrink:0;align-items:center}
 .roster-item input[type="text"]{background:var(--bg);border:1px solid var(--accent);color:var(--tx);border-radius:5px;padding:3px 7px;font-size:12px}
@@ -113,6 +126,10 @@ button:not(:disabled):hover{filter:brightness(1.15)}
 .calib-header.p1{background:var(--p1-bg);border-bottom:2px solid var(--p1);color:var(--p1)}
 .calib-header.p2{background:var(--p2-bg);border-bottom:2px solid var(--p2);color:var(--p2)}
 .calib-header.p3{background:var(--p3-bg);border-bottom:2px solid var(--p3);color:var(--p3)}
+.calib-header.p4{background:var(--p4-bg);border-bottom:2px solid var(--p4);color:var(--p4)}
+.calib-header.p5{background:var(--p5-bg);border-bottom:2px solid var(--p5);color:var(--p5)}
+.calib-header.p6{background:var(--p6-bg);border-bottom:2px solid var(--p6);color:var(--p6)}
+.calib-header.p7{background:var(--p7-bg);border-bottom:2px solid var(--p7);color:var(--p7)}
 .rssi-live-badge{font-size:11px;font-weight:normal}
 .rssi-live-badge strong{font-weight:700}
 .calib-card canvas{width:100%;height:130px;display:block;background:var(--bg)}

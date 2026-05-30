@@ -4,12 +4,12 @@
 // UART to Gate Node
 #define GATE_RX_PIN   3
 #define GATE_TX_PIN   2
-#define GATE_BAUD     115200
+#define GATE_BAUD     460800
 
 // Pilot limits
 #define MAX_REGISTERED  20
-#define MAX_ACTIVE       4
-#define MAX_LAPS       200
+#define MAX_ACTIVE       8
+#define MAX_LAPS       500
 #define DEFAULT_ENTER  (-80)
 #define DEFAULT_EXIT   (-90)
 
