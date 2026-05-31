@@ -94,6 +94,7 @@ function switchTab(tab){
   }
   if(tab==='sd') refreshSdFiles();
   if(tab==='config'){
+    if(typeof loadPasswordField==='function')loadPasswordField();
     if(!scanAutoRefreshH) scanAutoRefreshH=setInterval(()=>{
       scanRefresh();
       if(editingRosterId===null) renderRoster();

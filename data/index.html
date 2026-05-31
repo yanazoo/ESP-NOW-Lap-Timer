@@ -199,6 +199,7 @@ footer{background:var(--sf);border-top:1px solid var(--bd);text-align:center;pad
       <button class="tab-btn"        onclick="switchTab('config')">⚙️ 設定</button>
       <button class="tab-btn"        onclick="switchTab('calib')">📡 キャリブ</button>
       <button class="tab-btn"        onclick="switchTab('sd')">💾 SD</button>
+      <button id="authBtn" class="tab-btn" onclick="onAuthBtn()">🔒 ログイン</button>
     </nav>
   </div>
 </header>
@@ -214,7 +215,7 @@ footer{background:var(--sf);border-top:1px solid var(--bd);text-align:center;pad
       <button id="btnStop"  onclick="stopRace()"  class="btn-danger" disabled>■ ストップ</button>
       <button id="btnClear" onclick="clearAllLaps()" class="btn-secondary">クリア</button>
     </div>
-    <div id="authHint">🔒 操作するには <a onclick="switchTab('config')">ログイン</a> が必要です（デフォルト: admin）</div>
+    <div id="authHint">🔒 操作するには <a onclick="onAuthBtn()">ログイン</a> が必要です</div>
     <div class="lap-count-row">
       <label>総周回数:</label>
       <input type="number" id="totalLaps" min="0" max="99" value="0">
@@ -343,17 +344,10 @@ footer{background:var(--sf);border-top:1px solid var(--bd);text-align:center;pad
   <!-- ── 管理者パスワード ── -->
   <div class="global-config-card">
     <h3 class="global-title">🔒 管理者パスワード</h3>
-    <p class="section-desc">レース以外のタブ（設定・キャリブ・SD）とレース制御ボタンは、このパスワードでログインした端末からのみ操作できます。<strong>デフォルト: <code>admin</code></strong></p>
-    <div class="config-row" style="gap:8px"><label style="width:110px">現在のパスワード</label>
-      <input type="password" id="pwCurrent" autocomplete="current-password" style="flex:1;background:var(--sf2);border:1px solid var(--bd);color:var(--tx);border-radius:6px;padding:6px 8px;font-size:13px"></div>
-    <div class="config-row" style="gap:8px"><label style="width:110px">新しいパスワード</label>
-      <input type="password" id="pwNew" autocomplete="new-password" maxlength="32" style="flex:1;background:var(--sf2);border:1px solid var(--bd);color:var(--tx);border-radius:6px;padding:6px 8px;font-size:13px"></div>
-    <div class="config-row" style="gap:8px"><label style="width:110px">新しいパスワード（確認）</label>
-      <input type="password" id="pwConfirm" autocomplete="new-password" maxlength="32" style="flex:1;background:var(--sf2);border:1px solid var(--bd);color:var(--tx);border-radius:6px;padding:6px 8px;font-size:13px"></div>
-    <div style="display:flex;gap:8px;margin-top:8px">
-      <button onclick="changePassword()" class="btn-success" style="flex:1">パスワードを変更</button>
-      <button onclick="logout()" class="btn-secondary" style="flex:1">🔒 ログアウト</button>
-    </div>
+    <p class="section-desc">レース以外のタブ（設定・キャリブ・SD）とレース制御ボタンは、このパスワードでログインした端末からのみ操作できます。下の欄に入力されている値がそのままパスワードです。</p>
+    <div class="config-row" style="gap:8px"><label style="width:110px">パスワード</label>
+      <input type="text" id="pwField" maxlength="32" autocomplete="off" style="flex:1;background:var(--sf2);border:1px solid var(--bd);color:var(--tx);border-radius:6px;padding:6px 8px;font-size:13px">
+      <button onclick="savePassword()" class="btn-success">保存</button></div>
   </div>
 </section>
 
@@ -383,7 +377,7 @@ footer{background:var(--sf);border-top:1px solid var(--bd);text-align:center;pad
 <div id="loginModal" class="modal-overlay" onclick="if(event.target===this)cancelLogin()">
   <div class="modal-box">
     <h3>🔒 管理者ログイン</h3>
-    <p>レース以外のタブとレース制御ボタンを操作するには、パスワードが必要です。<br>デフォルト: <code>admin</code></p>
+    <p>レース以外のタブとレース制御ボタンを操作するには、パスワードが必要です。</p>
     <input type="password" id="loginPw" autocomplete="current-password" placeholder="パスワード"
       onkeydown="if(event.key==='Enter')submitLogin()">
     <div id="loginErr" class="modal-err"></div>

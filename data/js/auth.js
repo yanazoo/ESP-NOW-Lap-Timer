@@ -1,10 +1,13 @@
 'use strict';
 
 // ── Soft auth ────────────────────────────────────────────────────────────
-// Trigger: switching to any non-race tab when not yet authed.
-// The password lives only in NVS on the web node — never in the JS bundle.
-// Session-scoped (sessionStorage) so a shared device doesn't stay authed
-// across a browser-close.
+// Accidental-clobber protection, not real security. A single shared admin
+// password (stored in NVS on the web node) gates the non-race tabs and the
+// race-control buttons. Session-scoped (sessionStorage) so a shared device
+// doesn't stay authed across a browser-close.
+
+// Header button: login when logged out, logout when logged in.
+function onAuthBtn(){ if(isAuthed)logout(); else openLoginModal(); }
 
 function openLoginModal(){
   var m=document.getElementById('loginModal');if(!m)return;
@@ -28,7 +31,7 @@ async function submitLogin(){
       isAuthed=true;sessionStorage.setItem('authed','1');
       closeLoginModal();applyAuthState();
       var t=pendingTab;pendingTab=null;
-      if(t)switchTab(t);
+      switchTab(t||'config');
       toast('🔓 ログインしました');
     }else{
       if(err){err.style.display='block';err.textContent='パスワードが違います';}
@@ -39,49 +42,44 @@ async function submitLogin(){
 function logout(){
   isAuthed=false;sessionStorage.removeItem('authed');
   applyAuthState();
-  // Bounce back to Race tab so viewers can't keep seeing admin panes.
-  switchTab('race');
+  switchTab('race');   // bounce viewers off admin panes
   toast('🔒 ログアウトしました');
 }
 
-// Reflect auth state across the UI: race controls, tab buttons (lock icons),
-// and the Config-tab admin card visibility (the card is *inside* a tab that
-// only the authed user can reach, so we just need to populate it).
+// Reflect auth state: header button label, race controls, locked-tab marks.
 function applyAuthState(){
-  // Race control buttons — viewers see them disabled with a hint.
+  var ab=document.getElementById('authBtn');
+  if(ab)ab.textContent=isAuthed?'🔓 ログアウト':'🔒 ログイン';
   var hint=document.getElementById('authHint');
   if(hint)hint.style.display=isAuthed?'none':'block';
-  if(!isAuthed){
-    ['btnStart','btnStop','btnClear'].forEach(function(id){
-      var b=document.getElementById(id);if(b){b.disabled=true;b.title='管理者ログインが必要です';}
-    });
-  }else{
-    // Restore normal disable-state for race buttons from race state.
-    if(typeof setBtns==='function')setBtns(raceRunning);
-    ['btnStart','btnStop','btnClear'].forEach(function(id){
-      var b=document.getElementById(id);if(b)b.title='';
-    });
-  }
-  // Lock icon on gated tab buttons.
+  if(typeof setBtns==='function')setBtns(raceRunning);
+  ['btnStart','btnStop','btnClear'].forEach(function(id){
+    var b=document.getElementById(id);if(b)b.title=isAuthed?'':'管理者ログインが必要です';
+  });
   document.querySelectorAll('.tab-btn').forEach(function(b,i){
     var name=['race','config','calib','sd'][i];
-    if(name==='race')return;
+    if(name===undefined||name==='race')return;
     b.classList.toggle('locked',!isAuthed);
   });
 }
 
-async function changePassword(){
-  var cur=document.getElementById('pwCurrent');
-  var nw =document.getElementById('pwNew');
-  var cf =document.getElementById('pwConfirm');
-  if(!cur||!nw||!cf)return;
-  if(nw.value.length<1||nw.value.length>32){toast('⚠️ パスワードは1〜32文字');return;}
-  if(nw.value!==cf.value){toast('⚠️ 新パスワードと確認が一致しません');return;}
+// Primitive password management: the field shows the current password and
+// whatever it contains becomes the password on save. Load on first Config view.
+async function loadPasswordField(){
+  var f=document.getElementById('pwField');if(!f)return;
+  try{
+    var r=await fetch('/api/auth/password');
+    if(r.ok){var j=await r.json();f.value=j.password||'';}
+  }catch(e){}
+}
+async function savePassword(){
+  var f=document.getElementById('pwField');if(!f)return;
+  var v=f.value;
+  if(v.length<1||v.length>32){toast('⚠️ パスワードは1〜32文字');return;}
   try{
     var r=await fetch('/api/auth/password',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({current:cur.value,new:nw.value})});
-    if(r.ok){cur.value=nw.value=cf.value='';toast('✅ パスワードを変更しました');}
-    else if(r.status===401)toast('⚠️ 現在のパスワードが違います');
-    else toast('⚠️ 変更エラー');
+      body:JSON.stringify({password:v})});
+    if(r.ok)toast('✅ パスワードを保存しました');
+    else toast('⚠️ 保存エラー');
   }catch(e){toast('⚠️ 通信エラー');}
 }
