@@ -28,6 +28,7 @@ void setup() {
     memset(rt, 0, sizeof(rt));
     loadRosterConfig();
     loadActiveConfig();
+    loadAdminPassword();
 
     WiFi.mode(WIFI_AP);
     WiFi.softAPConfig(AP_IP, AP_GATEWAY, AP_SUBNET);
@@ -50,9 +51,8 @@ void setup() {
     registerHttpRoutes();
     server.begin();
 
-    Serial.printf("[Web] HTTP started  roster=%d/%d  active=%d,%d,%d,%d\n",
-                  rosterCount, MAX_REGISTERED,
-                  activePilots[0], activePilots[1], activePilots[2], activePilots[3]);
+    Serial.printf("[Web] HTTP started  roster=%d/%d  slots=%d\n",
+                  rosterCount, MAX_REGISTERED, MAX_ACTIVE);
 
     delay(500);
     sendAllPilots();

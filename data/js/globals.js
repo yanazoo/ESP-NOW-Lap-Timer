@@ -1,8 +1,9 @@
 'use strict';
 
-const PCOLORS = ['var(--p0)','var(--p1)','var(--p2)','var(--p3)'];
-const PCLS    = ['p0','p1','p2','p3'];
-const N = 4;
+const PCOLORS = ['var(--p0)','var(--p1)','var(--p2)','var(--p3)',
+                 'var(--p4)','var(--p5)','var(--p6)','var(--p7)'];
+const PCLS    = ['p0','p1','p2','p3','p4','p5','p6','p7'];
+const N = 8;
 
 const slots = Array.from({length:N}, (_,i) => ({
   id:i, name:'---', yomi:'', rosterIdx:-1, rssi:-120, crossing:false,
@@ -20,7 +21,7 @@ function rebuildRosterIndex(){
     if(r.uid)rosterByUid[r.uid.toUpperCase()]=r;
   }
 }
-var activeSlotsLocal = [-1,-1,-1,-1];
+var activeSlotsLocal = Array(N).fill(-1);
 
 var raceRunning=false, raceStartPerf=0, timerH=null, countdownH=null;
 var raceStarted=false, timerFrozenMs=0;
@@ -33,7 +34,15 @@ var sdLogMode    = localStorage.getItem('sdLogMode')||'always';
 function sdLogModeInt(m){return m==='off'?2:(m==='rotate'?1:0);}
 
 var scanResults  = {};
+var activeTab    = 'race';   // gates per-tab work in the hot RSSI path
 var editingRosterId = null;
+
+// Soft auth: viewers see the Race tab read-only, admins (single shared
+// password, default "admin") get access to Config/Calib/SD + race controls.
+// Session-scoped: clears on tab close so a shared device doesn't stay
+// authed forever.
+var isAuthed = sessionStorage.getItem('authed')==='1';
+var pendingTab = null;       // tab the user is trying to reach via login
 var sdPresent = false;
 var sdFileList = [];
 var sdDownloadBuf = [], sdDownloadPath = '';
@@ -60,10 +69,16 @@ function dbPct(db){return Math.max(0,Math.min(100,((db-(-120))/((-40)-(-120)))*1
 function fmtDelta(ms){return(ms>0?'+':'')+(ms/1000).toFixed(3)+'s';}
 
 function switchTab(tab){
+  // Soft auth gate — non-race tabs require admin login.
+  if(tab!=='race'&&!isAuthed){pendingTab=tab;openLoginModal();return;}
+  activeTab=tab;
   document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
   document.getElementById('pane-'+tab).classList.add('active');
   document.querySelectorAll('.tab-btn')[['race','config','calib','sd'].indexOf(tab)].classList.add('active');
+  // Returning to a tab: repaint its live widgets immediately (the hot RSSI
+  // path only touches the DOM of the currently-active tab).
+  if(tab==='race')slots.forEach(p=>updateRaceCard(p));
   var sdActive=tab==='config'||tab==='sd';
   fetch('/api/sd/poll',{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({enable:sdActive})}).catch(()=>{});
@@ -79,6 +94,7 @@ function switchTab(tab){
   }
   if(tab==='sd') refreshSdFiles();
   if(tab==='config'){
+    if(typeof loadPasswordField==='function')loadPasswordField();
     if(!scanAutoRefreshH) scanAutoRefreshH=setInterval(()=>{
       scanRefresh();
       if(editingRosterId===null) renderRoster();

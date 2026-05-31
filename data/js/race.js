@@ -109,6 +109,34 @@ function addLapRow(p, lapMs, cumMs){
   card.addEventListener('animationend',()=>card.classList.remove('flash'),{once:true});
 }
 
+// ── Race state transitions ──────────────────────────────────────────────
+// The web node broadcasts race_start / race_resume / race_stop over the
+// WebSocket, which is the normal trigger for these. Each Start/Stop also
+// arms a short watchdog: if that WS message is ever lost, the watchdog
+// applies the transition locally so the controls can never get stuck.
+var raceStartSeq=0, raceStartApplied=-1, startWatchdog=null, stopWatchdog=null;
+function clearStartWatchdog(){if(startWatchdog){clearTimeout(startWatchdog);startWatchdog=null;}}
+function clearStopWatchdog(){if(stopWatchdog){clearTimeout(stopWatchdog);stopWatchdog=null;}}
+
+function onRaceStart(){
+  raceStartApplied=raceStartSeq;clearStartWatchdog();
+  raceRunning=true;raceStarted=true;setBtns(true);startTimer();
+  slots.forEach(p=>{
+    p.lapCount=0;p.bestLapMs=0;p.lapTimes=[];p.cumulative=0;
+    var e=p.el;
+    if(e){e.body.innerHTML='';e.delta.textContent='';}
+    updateRaceCard(p);
+  });
+}
+function onRaceResume(){
+  clearStartWatchdog();
+  raceRunning=true;raceStarted=true;setBtns(true);resumeTimer();
+}
+function onRaceStop(){
+  clearStopWatchdog();
+  raceRunning=false;setBtns(false);stopTimer();
+}
+
 function startRace(){
   ensureAudio();warmUpSpeech();
   var btnStart=document.getElementById('btnStart');
@@ -118,7 +146,11 @@ function startRace(){
   // Resume a paused race (Stop → Start) without countdown or reset.
   if(raceStarted && !raceRunning){
     fetch('/api/race/resume',{method:'POST'})
-      .catch(e=>{btnStart.disabled=false;if(btnClear)btnClear.disabled=false;});
+      .then(r=>{if(!r.ok)throw 0;
+        clearStartWatchdog();
+        startWatchdog=setTimeout(()=>{if(!raceRunning)onRaceResume();},1500);
+      })
+      .catch(e=>{btnStart.disabled=false;if(btnClear)btnClear.disabled=false;toast('⚠️ 再開 通信エラー');});
     return;
   }
   sfx.count();
@@ -132,13 +164,24 @@ function startRace(){
     if(rem===0){clearInterval(countdownH);countdownH=null;}
   },50);
   setTimeout(async()=>{
-    try{await fetch('/api/race/start',{method:'POST'});}
-    catch(e){btnStart.disabled=false;}
+    raceStartSeq++;var mySeq=raceStartSeq;   // claim this start cycle
+    try{
+      var r=await fetch('/api/race/start',{method:'POST'});
+      if(!r.ok)throw 0;
+      clearStartWatchdog();
+      startWatchdog=setTimeout(()=>{if(raceStartApplied!==mySeq)onRaceStart();},1500);
+    }
+    catch(e){btnStart.disabled=false;if(btnClear)btnClear.disabled=false;toast('⚠️ スタート 通信エラー');}
   },3300);
 }
 function stopRace(){
   ensureAudio();beepSeq([[880,.2,'sine',0],[440,.2,'sine',220],[220,.3,'sine',440]]);
-  fetch('/api/race/stop',{method:'POST'}).catch(()=>{});
+  fetch('/api/race/stop',{method:'POST'})
+    .then(r=>{if(!r.ok)return;
+      clearStopWatchdog();
+      stopWatchdog=setTimeout(()=>{if(raceRunning)onRaceStop();},1500);
+    })
+    .catch(()=>{});
 }
 async function clearAllLaps(){
   var hasData=slots.some(p=>p.lapCount>0);
@@ -171,11 +214,13 @@ async function clearAllLaps(){
 }
 
 function setBtns(running){
-  document.getElementById('btnStart').disabled=running;
-  document.getElementById('btnStop').disabled=!running;
+  // Viewers (unauthed) can never operate race controls regardless of state.
+  var locked=!isAuthed;
+  document.getElementById('btnStart').disabled=locked||running;
+  document.getElementById('btnStop').disabled=locked||!running;
   // Clear is only allowed while stopped (not during a running race).
   var btnClear=document.getElementById('btnClear');
-  if(btnClear)btnClear.disabled=running;
+  if(btnClear)btnClear.disabled=locked||running;
 }
 function checkFinished(p){
   var tot=parseInt(document.getElementById('totalLaps').value)||0;

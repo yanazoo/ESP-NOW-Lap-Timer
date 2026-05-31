@@ -5,12 +5,12 @@
 A lap timer for **RC cars and FPV drones** built on ESP-NOW communication.
 **No personal transponder required** — a low-cost, build-it-yourself lap-timing system anyone can put together.
 
-> All you need is a tiny beacon on the vehicle (XIAO ESP32-C3, about $5–7 each) and a gate receiver at the trackside. For roughly **the price of a single commercial transponder**, you get a full system that times up to 4 vehicles at once.
+> All you need is a tiny beacon on the vehicle (XIAO ESP32-C3, about $5–7 each) and a gate receiver at the trackside. For roughly **the price of a single commercial transponder**, you get a full system that times up to 8 vehicles at once.
 
 **Highlights:**
 - No modification to the vehicle (RC car / drone) — just mount a XIAO ESP32-C3/C6
 - Low-cost setup with no personal transponder (the on-vehicle beacon is under ~$7)
-- Roster of up to 20 pilots/machines, up to 4 vehicles timed simultaneously
+- Roster of up to 20 pilots/machines, up to **8** vehicles timed simultaneously
 - Gate crossings detected via RSSI peak detection + a RotorHazard-style state machine
 - Smooth RSSI processing with an EMA filter (α = 0.3)
 - Switchable **HS mode** / **Immediate (timing) mode**
@@ -33,7 +33,7 @@ This system measures laps with just a **trackside gate receiver** and a **tiny b
 |---|---|---|
 | Vehicle side | Transponder ~$70–150 each | XIAO ESP32-C3 **~$5–7 each** |
 | Timing line side | Decoder + loop, hundreds–thousands of $ | ESP32 gate set **~$20–35** |
-| Simultaneous timing | Varies by product | **Up to 4 vehicles** (20 in the roster) |
+| Simultaneous timing | Varies by product | **Up to 8 vehicles** (20 in the roster) |
 | Logging | Proprietary software / cloud | Auto CSV to SD card (opens in Excel) |
 | Voice announce | Varies by product | Japanese TTS reads out lap count & lap time |
 
@@ -43,7 +43,7 @@ This system measures laps with just a **trackside gate receiver** and a **tiny b
 
 - **No vehicle modification**: just mount a thumb-sized, few-gram module. Power it from a power bank, the receiver BEC, etc.
 - **Any category**: touring, buggy, drift, crawler — if you can fit the beacon, you can time it
-- **Ideal for club runs and practice**: 4 vehicles at once, a 20-entry roster, automatic practice-lap timing and best-lap notifications
+- **Ideal for club runs and practice**: up to 8 vehicles at once, a 20-entry roster, automatic practice-lap timing and best-lap notifications
 - **Indoor or outdoor**: tune the gate antenna height and directivity to suit the track
 - **Accurate crossing detection**: RSSI peak detection pins the lap to the instant the vehicle is closest to the timing line
 
@@ -136,7 +136,7 @@ Race start
 ## Pilot Model
 
 - **Roster**: stores up to 20 pilots/machines in NVS (name, reading, vehicle MAC, RSSI thresholds)
-- **Active slots**: pick up to 4 from the roster and assign them to the gate
+- **Active slots**: pick up to 8 from the roster and assign them to the gate
 - **Vehicle identification**: each vehicle is uniquely identified by the hardware MAC address of its XIAO ESP32-C3
 - **Vehicle scan**: an unregistered vehicle appears automatically in the scan list when its ESP-NOW frame is received
   - Already-registered MACs are not shown in the scan list
@@ -193,7 +193,7 @@ Race start
 ```json
 {"type":"lap",            "pilot":0,"uid":"AA:BB:CC:DD:EE:FF","rssi":-72,"ts":123456,"lapMs":42100}
 {"type":"rssi",           "pilot":0,"rssi":-85,"raw":-87,"crossing":false,"signal":true,"ts":123460}
-{"type":"ready",          "pilots":4}
+{"type":"ready",          "pilots":8}
 {"type":"race_start_ack", "ts":123000}
 {"type":"sd_status",      "present":true}
 {"type":"scan",           "mac":"AA:BB:CC:DD:EE:FF","rssi":-75,"ts":123470}
@@ -276,7 +276,7 @@ Notifications appear in the **header status bar**, not as bottom-of-screen popup
 
 - **Vehicle scan**: auto-detected after power-on; only unregistered vehicles are listed
   - "Online" badge while RSSI is being received
-  - 🤖 **Auto channel assignment**: assign Ch1–4 by power-on order (`firstSeenAt`)
+  - 🤖 **Auto channel assignment**: assign Ch1–8 by power-on order (`firstSeenAt`)
   - ✖ **Clear all channels** button
   - Scan refresh button (manual gives feedback; auto-refresh runs silently every 5 s)
 - **Pilots/machines**: up to 20 (name, reading, vehicle MAC, channel assignment)

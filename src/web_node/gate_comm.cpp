@@ -151,7 +151,7 @@ void processGateLine(const String& line) {
                  rt[s].crossing ? "true" : "false",
                  rt[s].signal   ? "true" : "false",
                  (unsigned long)rt[s].lastTs);
-        wsText(wm);
+        wsTextLossy(wm);   // telemetry: drop rather than starve critical msgs
         return;
     }
     if (strcmp(type, "race_start_ack") == 0) {
@@ -170,12 +170,19 @@ void processGateLine(const String& line) {
 
         bool isFirst = (rt[s].lastLapTs == 0);
         uint32_t lapMs = 0;
+        // Guard the unsigned subtraction: a single out-of-order / corrupted /
+        // clock-glitched timestamp (ts < reference) would otherwise wrap to
+        // ~2^32 ms (~71582 min) and poison the cumulative for the rest of the
+        // race. On any inversion we emit 0 instead of garbage.
         if (!isFirst) {
-            lapMs = ts - rt[s].lastLapTs;
+            if (ts > rt[s].lastLapTs) lapMs = ts - rt[s].lastLapTs;
         } else if (gateRaceStartTs > 0) {
-            lapMs = ts - gateRaceStartTs;
+            if (ts > gateRaceStartTs) lapMs = ts - gateRaceStartTs;
         }
         rt[s].lastLapTs = ts;
+        // Reject implausibly long laps (>1h) from a corrupted-large timestamp,
+        // so the lap count still advances but best/cumulative stay sane.
+        if (lapMs > 3600000UL) lapMs = 0;
 
         if (isFirst && lapMs == 0) {
             JsonDocument wd;

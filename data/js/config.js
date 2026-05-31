@@ -269,7 +269,7 @@ async function autoAssignChannels(){
       return (sa.firstSeenAt||9999999999999)-(sb.firstSeenAt||9999999999999);
     });
   if(!online.length){toast('⚠️ オンラインの機体がありません');return;}
-  var newSlots=[-1,-1,-1,-1];
+  var newSlots=Array(N).fill(-1);
   for(var i=0;i<Math.min(online.length,N);i++)newSlots[i]=online[i].id;
   try{
     var r=await fetch('/api/active',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({slots:newSlots})});
@@ -282,7 +282,7 @@ async function autoAssignChannels(){
 }
 
 async function clearChannelAssignments(){
-  var newSlots=[-1,-1,-1,-1];
+  var newSlots=Array(N).fill(-1);
   try{
     var r=await fetch('/api/active',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({slots:newSlots})});
     if(r.ok){

@@ -11,6 +11,14 @@ DNSServer      dnsServer;
 void wsText(const String& msg) { ws.textAll(msg); }
 void wsText(const char* msg)   { ws.textAll(msg); }
 
+bool wsTextLossy(const char* msg) {
+    // Skip when no client can accept a frame; RSSI is transient so dropping
+    // a frame is harmless, and it keeps the queue clear for critical events.
+    if (!ws.availableForWriteAll()) return false;
+    ws.textAll(msg);
+    return true;
+}
+
 static void onWsEvent(AsyncWebSocket*, AsyncWebSocketClient* client,
                       AwsEventType evType, void*, uint8_t*, size_t) {
     if (evType != WS_EVT_CONNECT) return;

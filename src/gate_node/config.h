@@ -4,7 +4,7 @@
 #define WEB_NODE_TX_PIN   26
 #define WEB_NODE_RX_PIN   25
 #define DEBUG_BAUD        115200
-#define UART_BAUD         115200
+#define UART_BAUD         460800
 
 // SD SPI Pins — LilyGo TTGO T8 V1.8
 #define SD_CS_PIN    13
@@ -16,13 +16,15 @@
 #define ESPNOW_CHANNEL    1
 
 // Pilot detection
-#define MAX_PILOTS         4
+#define MAX_PILOTS         8
 #define EMA_ALPHA          0.3f
 #define DEFAULT_ENTRY_THR  (-80)
 #define DEFAULT_EXIT_THR   (-90)
 #define COOLDOWN_MS        3000UL
-#define RSSI_INTERVAL_MS   50UL
-#define SIGNAL_LOST_MS      200UL
+// Telemetry rate only — peak detection runs every loop (~10ms) regardless,
+// so this does not affect lap accuracy. 10Hz keeps 8-slot WS/UART load light.
+#define RSSI_INTERVAL_MS   100UL
+#define SIGNAL_LOST_MS      300UL
 
 // SD race-log rotation (rotate mode keeps at most this many race_*.csv)
 #define SD_MAX_RACE_FILES 20

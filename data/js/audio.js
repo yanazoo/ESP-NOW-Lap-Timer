@@ -134,9 +134,10 @@ function warmUpSpeech(){
   }catch(e){speechWarming=false;}
 }
 
+// Voice-only. Callers play the lap/crossing beep themselves, so an audio
+// cue always fires even when voice is off or the browser drops the utterance.
 function speak(text){
-  if(!voiceEnabled||announceMode==='none'){sfx.lap();return;}
-  if(announceMode==='beep'){sfx.lap();return;}
+  if(!voiceEnabled||announceMode==='none'||announceMode==='beep')return;
   if(speechQ.length<8)speechQ.push(text);
   if(!speechBusy)nextSpeech();
 }
