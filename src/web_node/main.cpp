@@ -50,9 +50,8 @@ void setup() {
     registerHttpRoutes();
     server.begin();
 
-    Serial.printf("[Web] HTTP started  roster=%d/%d  active=%d,%d,%d,%d\n",
-                  rosterCount, MAX_REGISTERED,
-                  activePilots[0], activePilots[1], activePilots[2], activePilots[3]);
+    Serial.printf("[Web] HTTP started  roster=%d/%d  slots=%d\n",
+                  rosterCount, MAX_REGISTERED, MAX_ACTIVE);
 
     delay(500);
     sendAllPilots();

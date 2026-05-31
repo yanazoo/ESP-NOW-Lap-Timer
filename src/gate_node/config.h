@@ -21,8 +21,10 @@
 #define DEFAULT_ENTRY_THR  (-80)
 #define DEFAULT_EXIT_THR   (-90)
 #define COOLDOWN_MS        3000UL
-#define RSSI_INTERVAL_MS   50UL
-#define SIGNAL_LOST_MS      200UL
+// Telemetry rate only — peak detection runs every loop (~10ms) regardless,
+// so this does not affect lap accuracy. 10Hz keeps 8-slot WS/UART load light.
+#define RSSI_INTERVAL_MS   100UL
+#define SIGNAL_LOST_MS      300UL
 
 // SD race-log rotation (rotate mode keeps at most this many race_*.csv)
 #define SD_MAX_RACE_FILES 20

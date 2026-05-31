@@ -34,6 +34,7 @@ var sdLogMode    = localStorage.getItem('sdLogMode')||'always';
 function sdLogModeInt(m){return m==='off'?2:(m==='rotate'?1:0);}
 
 var scanResults  = {};
+var activeTab    = 'race';   // gates per-tab work in the hot RSSI path
 var editingRosterId = null;
 var sdPresent = false;
 var sdFileList = [];
@@ -61,10 +62,14 @@ function dbPct(db){return Math.max(0,Math.min(100,((db-(-120))/((-40)-(-120)))*1
 function fmtDelta(ms){return(ms>0?'+':'')+(ms/1000).toFixed(3)+'s';}
 
 function switchTab(tab){
+  activeTab=tab;
   document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
   document.getElementById('pane-'+tab).classList.add('active');
   document.querySelectorAll('.tab-btn')[['race','config','calib','sd'].indexOf(tab)].classList.add('active');
+  // Returning to a tab: repaint its live widgets immediately (the hot RSSI
+  // path only touches the DOM of the currently-active tab).
+  if(tab==='race')slots.forEach(p=>updateRaceCard(p));
   var sdActive=tab==='config'||tab==='sd';
   fetch('/api/sd/poll',{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({enable:sdActive})}).catch(()=>{});

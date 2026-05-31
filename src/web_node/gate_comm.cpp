@@ -151,7 +151,7 @@ void processGateLine(const String& line) {
                  rt[s].crossing ? "true" : "false",
                  rt[s].signal   ? "true" : "false",
                  (unsigned long)rt[s].lastTs);
-        wsText(wm);
+        wsTextLossy(wm);   // telemetry: drop rather than starve critical msgs
         return;
     }
     if (strcmp(type, "race_start_ack") == 0) {

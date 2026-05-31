@@ -2,11 +2,6 @@
 
 var wsConn=null,wsRetry=1000;
 var wsDot=document.getElementById('wsDot');
-var _paneCalib=null;
-function calibPaneActive(){
-  if(!_paneCalib)_paneCalib=document.getElementById('pane-calib');
-  return !!_paneCalib&&_paneCalib.classList.contains('active');
-}
 
 function wsConnect(){
   wsConn=new WebSocket('ws://'+location.host+'/ws');
@@ -67,7 +62,21 @@ function onMsg(d){
     p.rssi=p.rssiSignal?(d.rssi!==undefined?d.rssi:p.rssi):-120;
     p.crossing=p.rssiSignal&&(d.crossing!==undefined?d.crossing:p.crossing);
     if(d.name&&d.name!=='---')p.name=d.name;
-    if(p.rssiSignal&&p.rosterIdx>=0){
+    // Enter/exit cues — audio is tab-independent during a race or calibration.
+    if(raceRunning||activeTab==='calib'){
+      if(!prevCrossing&&p.crossing){ensureAudio();sfx.enter();}
+      if(prevCrossing&&!p.crossing){ensureAudio();sfx.exit();}
+    }
+    // Per-tab DOM work: only touch the widgets of the visible tab. The hot
+    // RSSI path (up to 80 msgs/s with 8 slots) skips everything off-screen.
+    if(activeTab==='race'){
+      updateRaceCard(p);
+    } else if(activeTab==='calib'){
+      var calR=p.calRssiEl||(p.calRssiEl=document.getElementById('calRssi'+s));
+      if(calR){var cv=p.rssiSignal?p.rssi:'---';if(calR._v!==cv){calR.textContent=cv;calR._v=cv;}}
+      pushChart(s,p.rssiSignal?p.rssi:-120,p.crossing);
+    } else if(activeTab==='config'&&p.rssiSignal&&p.rosterIdx>=0){
+      // Keep the Config online-badge fresh only while that tab is open.
       var rp=rosterById[p.rosterIdx];
       if(rp&&rp.uid){
         var rmac=rp.uid.toUpperCase();var rnow=Date.now();
@@ -75,14 +84,6 @@ function onMsg(d){
         else{scanResults[rmac].rssi=p.rssi;scanResults[rmac].receivedAt=rnow;if(!scanResults[rmac].firstSeenAt)scanResults[rmac].firstSeenAt=rnow;scanResults[rmac].assignedRosterId=rp.id;scanResults[rmac].pilotName=rp.name;}
       }
     }
-    if(raceRunning||calibPaneActive()){
-      if(!prevCrossing&&p.crossing){ensureAudio();sfx.enter();}
-      if(prevCrossing&&!p.crossing){ensureAudio();sfx.exit();}
-    }
-    updateRaceCard(p);
-    var calR=p.calRssiEl||(p.calRssiEl=document.getElementById('calRssi'+s));
-    if(calR){var cv=p.rssiSignal?p.rssi:'---';if(calR._v!==cv){calR.textContent=cv;calR._v=cv;}}
-    pushChart(s,p.rssiSignal?p.rssi:-120,p.crossing);
     return;
   }
   if(d.type==='gate_start'){
@@ -104,24 +105,22 @@ function onMsg(d){
     p.lapTimes.push(lapMs);
     var _isHS=(lapMode==='holeshot'&&p.lapCount===1);
     var _cum;if(_isHS){_cum=lapMs;}else{p.cumulative+=lapMs;_cum=p.cumulative;}
-    if(!_isHS&&lapMs>0&&(!p.bestLapMs||lapMs<p.bestLapMs))p.bestLapMs=lapMs;
+    // Firmware is authoritative for best lap (it knows the HS exclusion).
+    if(d.bestLap!==undefined)p.bestLapMs=d.bestLap;
+    else if(!_isHS&&lapMs>0&&(!p.bestLapMs||lapMs<p.bestLapMs))p.bestLapMs=lapMs;
     updateRaceCard(p);addLapRow(p,lapMs,_cum);checkFinished(p);
-    if(d.newBest||lapMs===p.bestLapMs)sfx.best();
+    // Always give immediate, reliable audio feedback for the crossing —
+    // independent of TTS, which can be dropped by the browser. Best lap gets
+    // the fanfare; every other lap gets the standard lap tone.
+    ensureAudio();
+    if(d.newBest)sfx.best();else sfx.lap();
+    // Voice announcement is additive on top of the beep.
     speak(buildSpeech(p,p.lapCount,lapMs));
     return;
   }
-  if(d.type==='race_start'){
-    raceRunning=true;raceStarted=true;setBtns(true);startTimer();
-    slots.forEach(p=>{p.lapCount=0;p.bestLapMs=0;p.lapTimes=[];p.cumulative=0;
-      document.getElementById('lapBody'+p.id).innerHTML='';
-      document.getElementById('rcDelta'+p.id).textContent='';
-      updateRaceCard(p);});
-    return;
-  }
-  if(d.type==='race_resume'){
-    raceRunning=true;raceStarted=true;setBtns(true);resumeTimer();return;
-  }
-  if(d.type==='race_stop'){raceRunning=false;setBtns(false);stopTimer();return;}
+  if(d.type==='race_start'){onRaceStart();return;}
+  if(d.type==='race_resume'){onRaceResume();return;}
+  if(d.type==='race_stop'){onRaceStop();return;}
   if(d.type==='sd_status'){updateSdSection(d.present);return;}
   if(d.type==='sd_restore_done'){
     toast('✅ SDから'+((d.pilots&&JSON.parse(d.pilots).length)||'?')+'人分を復元しました',3000);

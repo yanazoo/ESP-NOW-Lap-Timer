@@ -1,17 +1,16 @@
 'use strict';
 
 var charts={};
-var chartDirty=[false,false,false,false];
+var chartDirty=Array(N).fill(false);
 
-// Runs at 60fps via rAF; draws only when calib tab is active and data changed
+// Runs at 60fps via rAF; draws only when calib tab is active and data changed.
+// The hot RSSI path only pushes chart data while the calib tab is open, so
+// off-tab this loop has nothing dirty to do.
 (function chartLoop(){
   requestAnimationFrame(chartLoop);
-  var calibActive=document.getElementById('pane-calib').classList.contains('active');
+  if(activeTab!=='calib')return;
   for(var i=0;i<N;i++){
-    if(chartDirty[i]&&charts[i]){
-      if(calibActive)drawChart(i);
-      chartDirty[i]=false;
-    }
+    if(chartDirty[i]&&charts[i]){drawChart(i);chartDirty[i]=false;}
   }
 })();
 
