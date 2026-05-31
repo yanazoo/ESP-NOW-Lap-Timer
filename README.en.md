@@ -15,9 +15,11 @@ A lap timer for **RC cars and FPV drones** built on ESP-NOW communication.
 - Smooth RSSI processing with an EMA filter (α = 0.3)
 - Switchable **HS mode** / **Immediate (timing) mode**
 - GitHub Dark themed Web UI (Japanese TTS, Canvas waveform graph, SD file browser)
+- **Viewer / admin role split** (a password protects against accidental changes)
 - Automatic race CSV logging to SD card, plus roster backup/restore
 - SD card hot-plug detection (insertion/removal detected dynamically)
 - CSV saved with a UTF-8 BOM, so non-ASCII names are not garbled
+- Multiple devices can connect at once (no mid-race setting clobber)
 
 ---
 
@@ -66,7 +68,7 @@ This system measures laps with just a **trackside gate receiver** and a **tiny b
 ## Hardware Architecture
 
 ```
-┌─────────────────────────┐    UART (bidirectional)    ┌─────────────────────────┐
+┌─────────────────────────┐  UART 460800bps (bidir)   ┌─────────────────────────┐
 │   ESP32-WROVER-E-A      │ ←────────────────────────→ │   XIAO ESP32-S3-B       │
 │  LilyGo TTGO T8 V1.8    │                            │     (Web Node)          │
 │     (Gate Node)         │                            │                         │
@@ -164,7 +166,7 @@ Race start
 |------|------|
 | `config.h` | UART definitions, pilot limit, WiFi AP settings |
 | `data_model.h` | All struct definitions, extern declarations of globals |
-| `nvs_store.h/cpp` | NVS read/write (owns `roster[]` and `prefs`) |
+| `nvs_store.h/cpp` | NVS read/write (owns `roster[]`, `prefs`, admin password) |
 | `gate_comm.h/cpp` | Gate UART protocol, `processGateLine` (owns `rt[]` and `laps[]`) |
 | `json_api.h/cpp` | `rosterJson` / `activeJson` / `lapsJson` / `scanJson`, `handleBody` |
 | `ws_handler.h/cpp` | WebSocket, `wsText`, `onWsEvent` |
@@ -175,10 +177,11 @@ Race start
 
 | File | Role |
 |------|------|
-| `index.html` | HTML shell + CSS (no inline JS) |
-| `js/globals.js` | Constants, slot state, format helpers, `switchTab` (controls SD poll on tab switch) |
-| `js/audio.js` | Web Audio API, 4-layer synthesized `beep` / `sfx` objects, TTS queue, `buildSpeech` (per lap mode) |
-| `js/race.js` | Race cards, timer, race control, `applyActiveToSlots` |
+| `index.html` | HTML shell + CSS (no inline JS), login modal |
+| `js/globals.js` | Constants (`N=8`, slot colors), slot state, format helpers, `switchTab` (per-tab auth gate + SD poll control) |
+| `js/audio.js` | Web Audio API, 4-layer synthesized `beep` / `sfx` objects, TTS queue (voice), `buildSpeech` (per lap mode) |
+| `js/auth.js` | Soft auth (viewer/admin), login modal, password management |
+| `js/race.js` | Race cards, timer, race control (start/stop watchdog), `applyActiveToSlots` |
 | `js/config.js` | Roster CRUD, scan, auto channel assignment, SD backup/restore |
 | `js/calib.js` | Canvas chart, rAF loop, threshold sliders, `syncCalibSliders` |
 | `js/sd.js` | SD file browser (list, download, delete) |
@@ -188,39 +191,50 @@ Race start
 
 ## UART Protocol
 
-### Gate → Web
+> The Gate↔Web UART runs at **460800 bps** (headroom for 8-slot telemetry). The Web Node annotates the gate's `rssi` with `name` before relaying it to the browser.
+
+### Gate → Web (relayed/shaped by the Web Node to the browser)
 
 ```json
-{"type":"lap",            "pilot":0,"uid":"AA:BB:CC:DD:EE:FF","rssi":-72,"ts":123456,"lapMs":42100}
-{"type":"rssi",           "pilot":0,"rssi":-85,"raw":-87,"crossing":false,"signal":true,"ts":123460}
+{"type":"rssi",           "pilot":0,"name":"Hayate","rssi":-85,"raw":-87,"crossing":false,"signal":true,"ts":123460}
+{"type":"gate_start",     "pilot":0,"name":"Hayate","ts":123000}
+{"type":"lap",            "pilot":0,"name":"Hayate","yomi":"...","lapTime":42100,"bestLap":40500,"lapCount":2,"newBest":true,"rssi":-72,"ts":123456}
 {"type":"ready",          "pilots":8}
 {"type":"race_start_ack", "ts":123000}
+{"type":"race_start",     "ts":123000}
+{"type":"race_stop"}  {"type":"race_resume","ts":123000}
 {"type":"sd_status",      "present":true}
 {"type":"scan",           "mac":"AA:BB:CC:DD:EE:FF","rssi":-75,"ts":123470}
 {"type":"sd_pilot_row",   "name":"...","yomi":"...","mac":"...","enter":-80,"exit":-90}
-{"type":"sd_restore_done"}
+{"type":"sd_restore_done","pilots":"[...]"}
 {"type":"sd_file_list",   "files":[{"name":"race_001.csv","size":1024}]}
 {"type":"sd_file_line",   "path":"/race_001.csv","line":"0,Hayate,..."}
 {"type":"sd_file_done",   "path":"/race_001.csv"}
 {"type":"sd_delete_result","path":"/race_001.csv","ok":true}
 ```
 
-### Web → Gate
+> The first lap (the HS in HS mode) is sent as a `gate_start` with `lapTime:0`, and the browser announces the hole shot.
+
+### Web → Gate (raw lap-timing commands)
 
 ```json
 {"type":"cmd","action":"race_start"}
-{"type":"cmd","action":"set_pilot",    "pilot":0,"uid":"AA:BB:CC:DD:EE:FF","name":"Hayate"}
-{"type":"cmd","action":"set_threshold","pilot":0,"enter":-80,"exit":-90}
-{"type":"cmd","action":"set_cooldown", "ms":3000}
+{"type":"cmd","action":"set_pilot",       "pilot":0,"uid":"AA:BB:CC:DD:EE:FF","name":"Hayate"}
+{"type":"cmd","action":"set_threshold",   "pilot":0,"enter":-80,"exit":-90}
+{"type":"cmd","action":"set_cooldown",    "ms":3000}
+{"type":"cmd","action":"set_sd_log_mode", "mode":0}
 {"type":"cmd","action":"scan_refresh"}
-{"type":"cmd","action":"sd_poll",      "enable":true}
+{"type":"cmd","action":"sd_poll",         "enable":true}
 {"type":"cmd","action":"sd_begin_backup"}
-{"type":"cmd","action":"sd_backup_row","name":"...","yomi":"...","mac":"...","enter":-80,"exit":-90}
+{"type":"cmd","action":"sd_backup_row",   "name":"...","yomi":"...","mac":"...","enter":-80,"exit":-90}
 {"type":"cmd","action":"sd_end_backup"}
 {"type":"cmd","action":"sd_restore_request"}
+{"type":"cmd","action":"sd_race_save_begin"}
+{"type":"cmd","action":"sd_race_save_row", "slot":0,"name":"...","uid":"...","lap":1,"lapMs":42100,"rssi":-72,"ts":123456}
+{"type":"cmd","action":"sd_race_save_end"}
 {"type":"cmd","action":"sd_list_files"}
-{"type":"cmd","action":"sd_read_file", "path":"/race_001.csv"}
-{"type":"cmd","action":"sd_delete_file","path":"/race_001.csv"}
+{"type":"cmd","action":"sd_read_file",    "path":"/race_001.csv"}
+{"type":"cmd","action":"sd_delete_file",  "path":"/race_001.csv"}
 ```
 
 ---
@@ -248,9 +262,12 @@ CLEAR (idle)
 | ExitAt           | -90 dBm  | RSSI threshold to end a crossing                    |
 | EMA_ALPHA        | 0.3      | Smoothing coefficient                               |
 | COOLDOWN_MS      | 3000 ms  | Minimum lap interval (behavior varies by lap mode)  |
-| RSSI_INTERVAL_MS | 50 ms    | Telemetry interval (20 Hz)                          |
+| RSSI_INTERVAL_MS | 100 ms   | Telemetry interval (10 Hz)                          |
+| SIGNAL_LOST_MS   | 300 ms   | No beacon for this long → treated as "signal lost"  |
 
 These are **per-pilot and adjustable at runtime** via the sliders on the Calib tab (applied to the Gate Node immediately).
+
+> **The telemetry interval (10 Hz) does not affect lap accuracy.** Peak detection runs every Gate Node main-loop iteration (~10 ms) and fixes the lap at the peak time. The telemetry interval is just the on-screen RSSI refresh rate, kept at 10 Hz to ease UART/WebSocket load with 8 slots. The Aircraft Node beacon still broadcasts at 20 Hz (preserving peak-detection resolution).
 
 ---
 
@@ -262,12 +279,15 @@ Notifications appear in the **header status bar**, not as bottom-of-screen popup
 
 ### Race Tab
 
+- Viewable even in viewer mode (control buttons are enabled only after admin login)
 - 3-second countdown + race timer (start / stop / clear)
 - Double-start prevention (buttons disabled during countdown)
+- Start/Stop are **watchdog-backed**: the controls never get stuck even if a WebSocket message is dropped
+- A lap always plays a **sound effect** on detection (independent of TTS — the crossing tone still fires with voice off or if TTS fails)
 - **Pause/Resume**: Stop = pause. Pressing Start again resumes from that point with no countdown (lap data retained). Time spent paused is excluded from both the timer display and lap times
 - **Clear is state-aware**: disabled during a race, enabled after a stop. Clear saves results and resets everything = ready for the next race
 - **Timer restore**: even after a page reload, a running/paused timer is restored from the correct elapsed time
-- 4-column pilot grid: CROSSING badge, RSSI bar, best-lap + delta display
+- Pilot grid (up to 8 cards, 4 columns × 2 rows / 2 columns on mobile): CROSSING badge, RSSI bar, best-lap + delta display
 - Per-pilot lap table
   - **HS mode**: "HS" → "Lap 1", "Lap 2", ... / cumulative accumulates from the HS crossing
   - **Immediate mode**: "Lap 1", "Lap 2", ... / cumulative accumulates from start
@@ -286,13 +306,27 @@ Notifications appear in the **header status bar**, not as bottom-of-screen popup
   - Speech rate
   - Lap mode (HS mode / Immediate mode)
   - Cooldown time (in seconds)
-  - Settings are saved automatically to `localStorage`
+  - SD log mode (always / rotate / off)
+  - Saved automatically to `localStorage`; also pushed to the web node **only when not racing** (prevents mid-race clobber)
+- **Admin password**: view / change the login password (see below)
 - **SD card**: shown only when an SD card is detected
 
 ### Calib Tab
 
 - Per-pilot Canvas RSSI waveform graph (60 fps rAF loop, dynamic Y scale)
 - Enter/Exit threshold sliders (auto-saved after an 800 ms debounce)
+
+### 🔒 Admin Login (viewer / admin split)
+
+Soft auth that stops a viewer device from accidentally overwriting shared race settings when several devices are connected.
+
+- **Viewer mode (default)**: can only view the Race tab — lap tables, timer, RSSI bars. Start/Stop/Clear and the non-race tabs are not accessible
+- **Admin mode**: full access to the Config / Calib / SD tabs and the race-control buttons
+- **Login**: the "🔒 ログイン" button at the right end of the header, or clicking any non-race tab, opens the password modal. After login the button becomes "🔓 ログアウト"
+- **Changing the password**: the value shown in the "🔒 管理者パスワード" field in the Config tab *is* the password. Edit it and press Save (no confirmation field)
+- **Session**: logging out happens automatically when the browser is closed (stored in `sessionStorage`)
+
+> The intent is accidental-change protection, not real security; a malicious client hitting the API directly is out of scope. It's meant for separating spectators from operators at a race event.
 
 ### SD Tab
 
@@ -354,7 +388,7 @@ Hayate,hayate,AA:BB:CC:DD:EE:FF,-80,-90,0
 ```
 
 - Starts with a UTF-8 BOM
-- The `slot` column is the channel assignment (0–3, `-1` if unassigned). Active slots are also restored automatically on restore
+- The `slot` column is the channel assignment (0–7, `-1` if unassigned). Active slots are also restored automatically on restore
 
 ---
 
@@ -374,7 +408,9 @@ Hayate,hayate,AA:BB:CC:DD:EE:FF,-80,-90,0
 | `/api/scan`                 | GET                        | List scanned unregistered MACs                    |
 | `/api/scan/refresh`         | POST                       | Reset the scan timer (forwarded to Gate)          |
 | `/api/scan/clear`           | POST                       | Clear the scan list                               |
-| `/api/settings`             | POST `{lapMode,cooldownMs}`| Lap mode / cooldown settings                      |
+| `/api/settings`             | GET / POST `{lapMode,cooldownMs,sdLogMode}`| Get / set lap mode, cooldown, SD log mode |
+| `/api/auth/login`           | POST `{password}`          | Verify admin password (200/401)                   |
+| `/api/auth/password`        | GET / POST `{password}`    | Get / change the admin password (1–32 chars)      |
 | `/api/status`               | GET                        | System status (raceRunning, lapCount, etc.)       |
 | `/api/sd/status`            | GET                        | SD card presence                                  |
 | `/api/sd/poll`              | POST `{enable}`            | SD hot-plug polling on/off                        |
@@ -391,6 +427,8 @@ Hayate,hayate,AA:BB:CC:DD:EE:FF,-80,-90,0
 ### Requirements
 
 - PlatformIO Core or PlatformIO IDE (VS Code extension)
+
+> **Upgrading from v1.x:** the UART rate changed from 115200 to 460800 bps. **Re-flash BOTH the Gate Node and the Web Node** (if only one is updated the UART link will be garbled), then run `uploadfs` to refresh the Web UI.
 
 ### Build + flash
 
@@ -441,6 +479,7 @@ It broadcasts ESP-NOW beacons automatically, so no extra configuration is needed
 ## Announcements (TTS)
 
 Configurable in the Global Settings tab. Default is "name + lap + lap time".
+**The lap-detection sound effect always plays, independently of the announce setting** (the table below is the spoken readout).
 
 | Mode                                  | Example readout                                            |
 |---------------------------------------|-----------------------------------------------------------|
