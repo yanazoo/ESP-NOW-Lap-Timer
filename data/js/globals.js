@@ -36,6 +36,13 @@ function sdLogModeInt(m){return m==='off'?2:(m==='rotate'?1:0);}
 var scanResults  = {};
 var activeTab    = 'race';   // gates per-tab work in the hot RSSI path
 var editingRosterId = null;
+
+// Soft auth: viewers see the Race tab read-only, admins (single shared
+// password, default "admin") get access to Config/Calib/SD + race controls.
+// Session-scoped: clears on tab close so a shared device doesn't stay
+// authed forever.
+var isAuthed = sessionStorage.getItem('authed')==='1';
+var pendingTab = null;       // tab the user is trying to reach via login
 var sdPresent = false;
 var sdFileList = [];
 var sdDownloadBuf = [], sdDownloadPath = '';
@@ -62,6 +69,8 @@ function dbPct(db){return Math.max(0,Math.min(100,((db-(-120))/((-40)-(-120)))*1
 function fmtDelta(ms){return(ms>0?'+':'')+(ms/1000).toFixed(3)+'s';}
 
 function switchTab(tab){
+  // Soft auth gate — non-race tabs require admin login.
+  if(tab!=='race'&&!isAuthed){pendingTab=tab;openLoginModal();return;}
   activeTab=tab;
   document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));

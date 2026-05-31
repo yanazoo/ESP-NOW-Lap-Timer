@@ -214,11 +214,13 @@ async function clearAllLaps(){
 }
 
 function setBtns(running){
-  document.getElementById('btnStart').disabled=running;
-  document.getElementById('btnStop').disabled=!running;
+  // Viewers (unauthed) can never operate race controls regardless of state.
+  var locked=!isAuthed;
+  document.getElementById('btnStart').disabled=locked||running;
+  document.getElementById('btnStop').disabled=locked||!running;
   // Clear is only allowed while stopped (not during a running race).
   var btnClear=document.getElementById('btnClear');
-  if(btnClear)btnClear.disabled=running;
+  if(btnClear)btnClear.disabled=locked||running;
 }
 function checkFinished(p){
   var tot=parseInt(document.getElementById('totalLaps').value)||0;

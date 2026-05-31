@@ -245,7 +245,8 @@ async function loadAll(){
         var sdm2=document.getElementById('sdLogModeSelect');if(sdm2)sdm2.value=sdLogMode;
         var cd2=document.getElementById('cooldownInput');if(cd2)cd2.value=(cooldownMs/1000).toFixed(1);
       }
-    }else{
+    }else if(isAuthed){
+      // Only the admin should be pushing settings back to the web node.
       await fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},
         body:JSON.stringify({lapMode:lapMode==='immediate'?1:0,cooldownMs:cooldownMs,sdLogMode:sdLogModeInt(sdLogMode)})});
     }
@@ -255,5 +256,6 @@ async function loadAll(){
 // App init
 buildRaceCards();
 buildCalibCards();
+applyAuthState();
 wsConnect();
 loadAll();

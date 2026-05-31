@@ -375,6 +375,45 @@ void registerHttpRoutes() {
                 });
         });
 
+    // ── POST /api/auth/login ──────────────────────────────────────────────────
+    // Soft auth: gates non-race tabs in the UI from accidental viewer changes.
+    // No session/cookie — the client just records its own authed flag locally.
+    // The password itself never lives in the JS bundle.
+    server.on("/api/auth/login", HTTP_POST, [](AsyncWebServerRequest*){},
+        nullptr,
+        [](AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t idx, size_t total){
+            handleBody(req, data, len, idx, total,
+                [](AsyncWebServerRequest* req2, const char* body){
+                    JsonDocument doc;
+                    if (deserializeJson(doc, body) != DeserializationError::Ok)
+                        { req2->send(400,"application/json",R"({"ok":false,"error":"bad json"})"); return; }
+                    const char* pw = doc["password"] | "";
+                    if (adminPassword == pw) req2->send(200,"application/json",R"({"ok":true})");
+                    else                     req2->send(401,"application/json",R"({"ok":false,"error":"bad password"})");
+                });
+        });
+
+    // ── POST /api/auth/password ───────────────────────────────────────────────
+    // Change the admin password. Requires the current password (so a viewer
+    // can't drive-by the endpoint). New password must be 1..32 chars.
+    server.on("/api/auth/password", HTTP_POST, [](AsyncWebServerRequest*){},
+        nullptr,
+        [](AsyncWebServerRequest* req, uint8_t* data, size_t len, size_t idx, size_t total){
+            handleBody(req, data, len, idx, total,
+                [](AsyncWebServerRequest* req2, const char* body){
+                    JsonDocument doc;
+                    if (deserializeJson(doc, body) != DeserializationError::Ok)
+                        { req2->send(400,"application/json",R"({"ok":false,"error":"bad json"})"); return; }
+                    const char* cur = doc["current"] | "";
+                    const char* nw  = doc["new"]     | "";
+                    if (adminPassword != cur) { req2->send(401,"application/json",R"({"ok":false,"error":"bad current"})"); return; }
+                    size_t L = strlen(nw);
+                    if (L < 1 || L > 32)     { req2->send(400,"application/json",R"({"ok":false,"error":"length 1..32"})"); return; }
+                    saveAdminPassword(String(nw));
+                    req2->send(200,"application/json",R"({"ok":true})");
+                });
+        });
+
     // ── GET/POST /api/settings ────────────────────────────────────────────────
     server.on("/api/settings", HTTP_GET, [](AsyncWebServerRequest* req) {
         JsonDocument doc;

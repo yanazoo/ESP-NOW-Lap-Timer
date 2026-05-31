@@ -7,6 +7,21 @@ CalibConfig rosterCal[MAX_REGISTERED];
 int         rosterCount   = 0;
 int         activePilots[MAX_ACTIVE];
 Preferences prefs;
+String      adminPassword = "admin";   // overwritten by loadAdminPassword()
+
+void loadAdminPassword() {
+    prefs.begin("auth", true);
+    adminPassword = prefs.getString("pw", "admin");
+    if (adminPassword.length() == 0) adminPassword = "admin";
+    prefs.end();
+}
+
+void saveAdminPassword(const String& pw) {
+    adminPassword = pw.length() ? pw : String("admin");
+    prefs.begin("auth", false);
+    prefs.putString("pw", adminPassword);
+    prefs.end();
+}
 
 void saveRosterPilot(int i) {
     if (i < 0 || i >= rosterCount) return;
