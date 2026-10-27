@@ -21,6 +21,8 @@ A lap timer for **RC cars and FPV drones** built on ESP-NOW communication.
 - CSV saved with a UTF-8 BOM, so non-ASCII names are not garbled
 - Multiple devices can connect at once (no mid-race setting clobber)
 
+> 🛸 **FPV C5 Lap Timer (FPV drones)**: a variant with no beacon on the quad — a XIAO ESP32-C5 running FPVGate C5MK measures each VTX at 5.8 GHz and lap times are shown in the goggles through the ELRS backpack. See [`fpv_c5/`](fpv_c5/README.en.md).
+
 ---
 
 ## 🏎️ Lap Timing for RC Cars — A Low-Cost, Transponder-Free System
