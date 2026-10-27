@@ -38,8 +38,10 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: ~/.platformio
-          key: pio-s3-${{ hashFiles('fpv_c5/platformio.ini') }}
-      - run: pip install platformio
+          key: pio-6.1.18-s3-${{ hashFiles('fpv_c5/platformio.ini') }}
+      # pioarduino 55.03.x is built for platformio-core 6.1.18; 6.2.x ships an
+      # SCons without SCons.Tool.FortranCommon and the build stops there.
+      - run: pip install "platformio==6.1.18"
       - name: Firmware
         run: pio run -d fpv_c5 -e xiao_esp32s3
       - name: Web UI filesystem (LittleFS)
@@ -66,8 +68,10 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: ~/.platformio
-          key: pio-c5-${{ hashFiles('third_party/FPVGateC5MK/multipilot/platformio.ini') }}
-      - run: pip install platformio
+          key: pio-6.1.18-c5-${{ hashFiles('third_party/FPVGateC5MK/multipilot/platformio.ini') }}
+      # pioarduino 55.03.x is built for platformio-core 6.1.18; 6.2.x ships an
+      # SCons without SCons.Tool.FortranCommon and the build stops there.
+      - run: pip install "platformio==6.1.18"
       - run: pio run -d third_party/FPVGateC5MK/multipilot -e xiaoc5
       - uses: actions/upload-artifact@v4
         with:
